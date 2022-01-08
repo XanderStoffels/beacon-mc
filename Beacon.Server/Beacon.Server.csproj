@@ -5,17 +5,22 @@
 		<TargetFramework>net6.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-	</PropertyGroup>
 
-	<PropertyGroup>
 		<Id>Beacon.Server</Id>
 		<Version>0.1.0-alpha</Version>
+		<MinecraftVersion>1.18.1</MinecraftVersion>
 		<Authors>Xander Stoffels</Authors>
 		<Title>Beacon Server</Title>
 		<Description>A Minecraft Server written in C# using .NET 6.</Description>
 		<PackageLicenseExpression>GNU General Public License v2.0</PackageLicenseExpression>
 		<RepositoryUrl>https://github.com/XanderStoffels/beacon-mc</RepositoryUrl>
 	</PropertyGroup>
+	
+	<ItemGroup>
+		<AssemblyAttribute Include="Beacon.Server.MincraftVersionAttribute">
+			<_Parameter1>"$(MinecraftVersion)"</_Parameter1>
+		</AssemblyAttribute>
+	</ItemGroup>
 
 
 	<ItemGroup>
