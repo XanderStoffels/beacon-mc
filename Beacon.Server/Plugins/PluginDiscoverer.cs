@@ -1,5 +1,4 @@
 ﻿using Beacon.API.Plugins;
-using Beacon.DemoPlugin;
 using Microsoft.Extensions.Logging;
 using System.Runtime.Loader;
 
@@ -36,7 +35,6 @@ namespace Beacon.Server.Plugins
                     _logger.LogWarning(e, "Error while loading plugin from assembly {filename}. Is it a valid assembly?", file.Name);
                 }
             }
-            plugins.Add(new MOTDPlugin());
             return plugins;
         }
 
