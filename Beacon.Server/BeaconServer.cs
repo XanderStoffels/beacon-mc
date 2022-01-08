@@ -7,14 +7,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IO;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Beacon.Server
 {
@@ -66,6 +61,12 @@ namespace Beacon.Server
 
         protected override async Task ExecuteAsync(CancellationToken cancelToken)
         {
+#if DEBUG
+            _logger.LogWarning("Running in debug mode! Performance will be impaired");
+#else
+            _logger.LogInformation("Running in production mode");
+#endif
+            _logger.LogDebug("Debug logs are enabled");
             // Plugins
             var watch = Stopwatch.StartNew();
             await _plugins.InitializePlugins();
