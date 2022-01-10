@@ -8,8 +8,13 @@ using Serilog.Events;
 using System.Reflection;
 
 
-// Show logo.
+#if NET6_0_WINDOWS_OR_GREATER
 
+Console.WriteLine("Nice");
+
+#endif
+
+// Show logo.
 var serverVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3);
 var mcVersion = Assembly.GetExecutingAssembly().GetCustomAttribute<MincraftVersionAttribute>()?.MinecraftVersion.ToString(3);
 
@@ -42,7 +47,7 @@ try
             services.AddTransient<HandshakeState>();
             services.AddTransient<StatusState>();
 
-            services.AddSingleton<IPluginDiscoverer, PluginDiscoverer>();
+            services.AddSingleton<IPluginDiscovery, FilePluginDiscovery>();
             services.AddSingleton<IPluginController, PluginController>();
             services.AddHostedService<BeaconServer>();
         })

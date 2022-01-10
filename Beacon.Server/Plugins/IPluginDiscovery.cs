@@ -2,7 +2,7 @@
 
 namespace Beacon.Server.Plugins
 {
-    internal interface IPluginDiscoverer
+    internal interface IPluginDiscovery
     {
         List<IBeaconPlugin> DiscoverPlugins(CancellationToken cToken = default);
     }

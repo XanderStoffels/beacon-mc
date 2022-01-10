@@ -3,11 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beacon.API", "Beacon.API\Beacon.API.csproj", "{8C0A1553-68A6-4A51-8907-84D5985B9DDC}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beacon.Server", "Beacon.Server\Beacon.Server.csproj", "{A607043D-9C5D-4818-AB7A-B05247E46545}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beacon.DemoPlugin", "Beacon.DemoPlugin\Beacon.DemoPlugin.csproj", "{A34B3EF2-455D-4630-841B-6F6B24551C7C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beacon.DemoPlugin", "Beacon.DemoPlugin\Beacon.DemoPlugin.csproj", "{A34B3EF2-455D-4630-841B-6F6B24551C7C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{AA75B766-536A-4F54-B5EB-584E3C572C18}"
 	ProjectSection(SolutionItems) = preProject
@@ -20,10 +18,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{8C0A1553-68A6-4A51-8907-84D5985B9DDC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8C0A1553-68A6-4A51-8907-84D5985B9DDC}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8C0A1553-68A6-4A51-8907-84D5985B9DDC}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8C0A1553-68A6-4A51-8907-84D5985B9DDC}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A607043D-9C5D-4818-AB7A-B05247E46545}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A607043D-9C5D-4818-AB7A-B05247E46545}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A607043D-9C5D-4818-AB7A-B05247E46545}.Release|Any CPU.ActiveCfg = Release|Any CPU

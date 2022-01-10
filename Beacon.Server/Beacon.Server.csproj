@@ -14,7 +14,13 @@
 		<Description>A Minecraft Server written in C# using .NET 6.</Description>
 		<PackageLicenseExpression>GNU General Public License v2.0</PackageLicenseExpression>
 		<RepositoryUrl>https://github.com/XanderStoffels/beacon-mc</RepositoryUrl>
+		<PackageIcon>beacon.png</PackageIcon>
+		<ApplicationIcon>beacon.ico</ApplicationIcon>
 	</PropertyGroup>
+
+	<ItemGroup>
+	  <None Remove="beacon.ico" />
+	</ItemGroup>
 	
 	<ItemGroup>
 		<AssemblyAttribute Include="Beacon.Server.MincraftVersionAttribute">
@@ -24,16 +30,13 @@
 
 
 	<ItemGroup>
+		<PackageReference Include="Beacon.API" Version="0.1.1" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="6.0.0" />
 		<PackageReference Include="Microsoft.Extensions.ObjectPool" Version="6.0.1" />
 		<PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.0" />
 		<PackageReference Include="Serilog.Extensions.Hosting" Version="4.2.0" />
 		<PackageReference Include="Serilog.Sinks.Console" Version="4.0.1" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<ProjectReference Include="..\Beacon.API\Beacon.API.csproj" />
 	</ItemGroup>
 
 </Project>

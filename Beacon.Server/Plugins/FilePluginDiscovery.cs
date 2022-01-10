@@ -4,12 +4,12 @@ using System.Runtime.Loader;
 
 namespace Beacon.Server.Plugins
 {
-    internal class PluginDiscoverer : IPluginDiscoverer
+    internal class FilePluginDiscovery : IPluginDiscovery
     {
         private readonly DirectoryInfo _pluginFolder;
-        private readonly ILogger<PluginDiscoverer> _logger;
+        private readonly ILogger<FilePluginDiscovery> _logger;
 
-        public PluginDiscoverer(ILogger<PluginDiscoverer> logger)
+        public FilePluginDiscovery(ILogger<FilePluginDiscovery> logger)
         {
             _logger = logger;
             _pluginFolder = new("plugins");
@@ -27,8 +27,8 @@ namespace Beacon.Server.Plugins
                 {
                     var plugin = LoadPluginFromFile(file);
                     if (plugin == null) continue;
+                    _logger.LogInformation("Discovered plugin {pluginname} v{version}", plugin.Name, plugin.Version.ToString());
                     plugins.Add(plugin);
-                    _logger.LogInformation("Discovered plugin {pluginname}", plugin.Name);
                 }
                 catch (Exception e)
                 {

@@ -8,14 +8,14 @@ namespace Beacon.Server.Plugins
 {
     internal class PluginController : IPluginController
     {
-        private readonly IPluginDiscoverer _loader;
+        private readonly IPluginDiscovery _loader;
         private readonly ILogger<PluginController> _logger;
         private readonly List<IBeaconPlugin> _loadedPlugins;
 
         public IServiceProvider? _pluginServices;
         public bool IsInitialized => _pluginServices != null;
 
-        public PluginController(IPluginDiscoverer loader, ILogger<PluginController> logger)
+        public PluginController(IPluginDiscovery loader, ILogger<PluginController> logger)
         {
             _loader = loader;
             _logger = logger;
