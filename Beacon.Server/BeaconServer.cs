@@ -97,6 +97,14 @@ namespace Beacon.Server
             await JsonSerializer.SerializeAsync(file.OpenWrite(), config, cancellationToken: cToken);
             return config;
         }
+
+        public ValueTask ReloadAysnc()
+        {
+            using var scope = _logger.BeginScope("ServerReload");
+            _logger.LogInformation("Reloading server");
+            return _plugins.ReloadAsync();
+        }
+
         private async Task AccecptConnectionsAsync(CancellationToken cancelToken)
         {
             _logger.LogInformation("Start listening for clients");
@@ -116,7 +124,8 @@ namespace Beacon.Server
             var watch = Stopwatch.StartNew();
 
             // Plugins
-            await _plugins.InitializePlugins();
+            await _plugins.LoadAsync();
+            await ReloadAysnc();
 
             watch.Stop();
             _logger.LogInformation("Server booted in {seconds} seconds", watch.ElapsedMilliseconds / 1000.0);

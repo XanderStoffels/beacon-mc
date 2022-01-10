@@ -1,5 +1,7 @@
-﻿using Beacon.Server;
+﻿using Beacon.API;
+using Beacon.Server;
 using Beacon.Server.Plugins;
+using Beacon.Server.Plugins.Events;
 using Beacon.Server.States;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -33,13 +35,13 @@ Log.Logger = new LoggerConfiguration()
 #endif
             .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
             .Enrich.FromLogContext()
-            .WriteTo.Console()
+            .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3} {Scope}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
 
 // Setup host and start server.
 try
 {
-    var host = Host.CreateDefaultBuilder()
+    await Host.CreateDefaultBuilder()
         .UseSerilog()
         .ConfigureServices((builder, services) =>
         {
@@ -47,13 +49,19 @@ try
             services.AddTransient<HandshakeState>();
             services.AddTransient<StatusState>();
 
-            services.AddSingleton<IPluginDiscovery, FilePluginDiscovery>();
-            services.AddSingleton<IPluginController, PluginController>();
-            services.AddHostedService<BeaconServer>();
-        })
-        .Build();
 
-    await host.RunAsync();
+            services.AddSingleton<IMinecraftEventBus, MinecraftEventBus>();
+            services.AddSingleton<IPluginLoader, FilePluginLoader>();
+            services.AddSingleton<IPluginController, PluginController>();
+
+            // services.AddSingleton<BeaconServer>();
+            // services.AddSingleton<IServer>(provider => provider.GetRequiredService<BeaconServer>());
+
+            services.AddHostedService<BeaconServer>();
+
+        })
+        .Build()
+        .RunAsync();
     return 0;
 }
 catch (Exception ex)

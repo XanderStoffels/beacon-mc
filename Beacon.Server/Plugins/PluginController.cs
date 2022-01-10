@@ -1,4 +1,5 @@
-﻿using Beacon.API.Events;
+﻿using Beacon.API;
+using Beacon.API.Events;
 using Beacon.API.Events.Handling;
 using Beacon.API.Plugins;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,93 +9,104 @@ namespace Beacon.Server.Plugins
 {
     internal class PluginController : IPluginController
     {
-        private readonly IPluginDiscovery _loader;
+        private readonly IPluginLoader _loader;
         private readonly ILogger<PluginController> _logger;
-        private readonly List<IBeaconPlugin> _loadedPlugins;
+        private readonly List<IPluginContext> _loadedContexts;
+        private IServiceProvider? _pluginServices;
 
-        public IServiceProvider? _pluginServices;
         public bool IsInitialized => _pluginServices != null;
 
-        public PluginController(IPluginDiscovery loader, ILogger<PluginController> logger)
+        public PluginController(IPluginLoader loader, ILogger<PluginController> logger)
         {
             _loader = loader;
             _logger = logger;
-            _loadedPlugins = new();
+            _loadedContexts = new();
         }
 
-        public async ValueTask InitializePlugins()
+        public async ValueTask LoadAsync()
         {
             if (IsInitialized) return;
 
-            _loadedPlugins.Clear();
+            _loadedContexts.Clear();
             _logger.LogInformation("Loading plugins");
 
-            var faultedPlugins = new List<IBeaconPlugin>();
-            var plugins = _loader.DiscoverPlugins();
-            _logger.LogInformation("{amount} plugins discovered", plugins.Count);
+            var faultedPlugins = new List<IPluginContext>();
+            var contexts = await _loader.LoadPluginContexts();
+            _logger.LogInformation("{amount} plugins discovered", contexts.Count);
 
-            // These services will contain the event handlers.
-            // Any custom services to provide to plugins can be registered here.
-            var services = new ServiceCollection();
-            foreach (var plugin in plugins)
+            // Add services to and from plugins.
+            var services = ConfigurePluginServices(new ServiceCollection());
+            foreach (var context in contexts)
             {
-                _logger.LogDebug("Configuring services for plugin {pluginname}", plugin.Name);
+                _logger.LogDebug("Configuring services for plugin {pluginname}", context.Plugin.Name);
                 try
                 {
-                    plugin.RegisterServices(services);
+                    context.Plugin.RegisterServices(services);
                 }
                 catch (Exception e)
                 {
-                    faultedPlugins.Add(plugin);
-                    _logger.LogWarning(e, "{pluginname} threw an exception while configuring services", plugin.Name);
+                    faultedPlugins.Add(context);
+                    _logger.LogWarning(e, "{pluginname} threw an exception while configuring services", context.Plugin.Name);
                 }
             }
 
-            plugins = plugins.Except(faultedPlugins).ToList();
+            // Clear out the plugins that crashed while adding services.
+            contexts = contexts.Except(faultedPlugins).ToList();
             faultedPlugins.Clear();
 
             _pluginServices = services.BuildServiceProvider();
 
-            foreach (var plugin in plugins)
+            // Enable all plugins that loaded correctly registered their services.
+            foreach (var context in contexts)
             {
-                _logger.LogDebug("Enabling {pluginname}", plugin.Name);
+                _logger.LogDebug("Enabling {pluginname}", context.Plugin.Name);
                 try
                 {
-                    await plugin.Enable();
+                    await context.Plugin.Enable();
                 }
                 catch (Exception e)
                 {
-                    faultedPlugins.Add(plugin);
-                    _logger.LogWarning(e, "{pluginname} threw an exception while enabling", plugin.Name);
+                    faultedPlugins.Add(context);
+                    _logger.LogWarning(e, "{pluginname} threw an exception while enabling!", context.Plugin.Name);
                 }
             }
 
-            plugins = plugins.Except(faultedPlugins).ToList();
-            _loadedPlugins.AddRange(plugins);
-            _logger.LogInformation("{amount} plugins loaded", _loadedPlugins.Count);
+            contexts = contexts.Except(faultedPlugins).ToList();
+            _loadedContexts.AddRange(contexts);
+            _logger.LogInformation("{amount} plugins loaded", _loadedContexts.Count);
         }
 
-        public List<IMinecraftEventHandler<TEvent>> GetEventHandlers<TEvent>() where TEvent : MinecraftEvent
+        public IReadOnlyList<IMinecraftEventHandler<TEvent>> GetPluginEventHandlers<TEvent>() where TEvent : MinecraftEvent
             => _pluginServices == null 
-                ? new() 
+                ? new()
                 : _pluginServices.GetServices<IMinecraftEventHandler<TEvent>>().ToList();
 
-        public async ValueTask<TEvent> FireEventAsync<TEvent>(TEvent e, CancellationToken cToken = default) where TEvent : MinecraftEvent
+        public async ValueTask UnloadAll()
         {
-            _logger.LogDebug("Firing event {eventname}", e.GetType().Name);
-            foreach (var handler in GetEventHandlers<TEvent>())
+            _logger.LogInformation("Unloading all plugins");
+            _pluginServices = null;
+            foreach (var context in _loadedContexts)
             {
-                if (cToken.IsCancellationRequested)
-                    e.IsCancelled = true;
-
-                if (e.IsCancelled)
-                    return e;
-
-                await handler.HandleAsync(e, cToken);
+                _logger.LogInformation("Unloading plugin {name}", context.Plugin.Name);
+                await context.DisposeAsync();
             }
-            return e;
+            _loadedContexts.Clear();
         }
 
- 
+        public async ValueTask ReloadAsync()
+        {
+            // Unload plugins.
+            await UnloadAll();
+
+            // Load plugins.
+            //await LoadAsync();
+        }
+
+        private IServiceCollection ConfigurePluginServices(IServiceCollection services)
+        {
+            return services;
+        }
+
+       
     }
 }

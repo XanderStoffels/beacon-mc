@@ -1,23 +1,21 @@
 ﻿using Beacon.Server.Net;
 using Beacon.Server.Net.Packets.Clientbound;
-using Beacon.Server.Plugins;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
 using Beacon.API.Events;
-using Beacon.API;
+using Beacon.Server.Plugins.Events;
 
 namespace Beacon.Server.States
 {
     internal class StatusState : IClientState
     {
         private readonly ILogger<StatusState> _logger;
-        private readonly IPluginController _plugins;
+        private readonly IMinecraftEventBus _eventBus;
         private bool _hasReceivedPacket = false;
 
-        public StatusState(ILogger<StatusState> logger, IPluginController plugins)
+        public StatusState(ILogger<StatusState> logger, IMinecraftEventBus plugins)
         {
             _logger = logger;
-            _plugins = plugins;
+            _eventBus = plugins;
         }
 
         public async ValueTask HandlePacketAsync(BeaconConnection connection, int packetId, Stream packetData, CancellationToken cToken)
@@ -51,7 +49,7 @@ namespace Beacon.Server.States
         {
             var status = await connection.Server.GetStatusAsync();
             var e = new ServerStatusRequestedEvent(connection.Tcp.Client.RemoteEndPoint, status);
-            await _plugins.FireEventAsync(e);
+            await _eventBus.FireEventAsync(e, cToken);
 
             if (e.IsCancelled) return;
             
