@@ -50,13 +50,14 @@ try
             services.AddTransient<StatusState>();
 
 
-            services.AddSingleton<IMinecraftEventBus, MinecraftEventBus>();
             services.AddSingleton<IPluginLoader, FilePluginLoader>();
             services.AddSingleton<IPluginController, PluginController>();
+            services.AddSingleton<BeaconServer>();
 
             // services.AddSingleton<BeaconServer>();
             // services.AddSingleton<IServer>(provider => provider.GetRequiredService<BeaconServer>());
-
+            
+            
             services.AddHostedService<BeaconServer>();
 
         })

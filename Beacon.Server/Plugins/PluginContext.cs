@@ -17,7 +17,9 @@ namespace Beacon.Server.Plugins
         public async ValueTask DisposeAsync()
         {
             await Plugin.Disable();
-            Plugin = null;
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
+            Plugin = null;     // PluginContext should no longer be used after disposing.
+#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
             AssemblyContext.Unload();
         }
     }

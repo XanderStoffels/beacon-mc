@@ -1,16 +1,17 @@
 ﻿using Beacon.API;
 using Beacon.API.Events;
 using Beacon.API.Events.Handling;
-using Beacon.API.Plugins;
+using Beacon.Server.Plugins.Events;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Serilog;
 
 namespace Beacon.Server.Plugins
 {
-    internal class PluginController : IPluginController
+    internal class PluginController : IPluginController, IMinecraftEventBus
     {
-        private readonly IPluginLoader _loader;
         private readonly ILogger<PluginController> _logger;
+        private readonly IPluginLoader _loader;
         private readonly List<IPluginContext> _loadedContexts;
         private IServiceProvider? _pluginServices;
 
@@ -23,7 +24,7 @@ namespace Beacon.Server.Plugins
             _loadedContexts = new();
         }
 
-        public async ValueTask LoadAsync()
+        public async ValueTask LoadAsync(IServer server)
         {
             if (IsInitialized) return;
 
@@ -35,7 +36,11 @@ namespace Beacon.Server.Plugins
             _logger.LogInformation("{amount} plugins discovered", contexts.Count);
 
             // Add services to and from plugins.
-            var services = ConfigurePluginServices(new ServiceCollection());
+            var services = new ServiceCollection()
+                .AddSingleton(provider => server)
+                .AddSingleton<IMinecraftEventBus>(provider => this)
+                .AddLogging();
+
             foreach (var context in contexts)
             {
                 _logger.LogDebug("Configuring services for plugin {pluginname}", context.Plugin.Name);
@@ -81,7 +86,7 @@ namespace Beacon.Server.Plugins
                 ? new()
                 : _pluginServices.GetServices<IMinecraftEventHandler<TEvent>>().ToList();
 
-        public async ValueTask UnloadAll()
+        public async ValueTask UnloadAsync()
         {
             _logger.LogInformation("Unloading all plugins");
             _pluginServices = null;
@@ -93,20 +98,41 @@ namespace Beacon.Server.Plugins
             _loadedContexts.Clear();
         }
 
-        public async ValueTask ReloadAsync()
+        public async ValueTask ReloadAsync(IServer server)
         {
             // Unload plugins.
-            await UnloadAll();
+            await UnloadAsync();
 
             // Load plugins.
-            //await LoadAsync();
+            await LoadAsync(server);
         }
 
-        private IServiceCollection ConfigurePluginServices(IServiceCollection services)
+        public async ValueTask<TEvent> FireEventAsync<TEvent>(TEvent e, CancellationToken cToken = default) where TEvent : MinecraftEvent
         {
-            return services;
+            foreach (var handler in this.GetPluginEventHandlers<TEvent>())
+            {
+                if (cToken.IsCancellationRequested)
+                    e.IsCancelled = true;
+
+                if (e.IsCancelled)
+                    return e;
+
+                try
+                {
+                    await handler.HandleAsync(e, cToken);
+                }
+                catch (TaskCanceledException) when (cToken.IsCancellationRequested)
+                {
+                    e.IsCancelled = true;
+                    return e;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Handler {name} threw an exception while handing event {eventname}!", nameof(handler), nameof(TEvent));
+                }
+            }
+            return e;
         }
 
-       
     }
 }
