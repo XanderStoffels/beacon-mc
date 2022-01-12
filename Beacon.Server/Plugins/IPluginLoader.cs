@@ -1,9 +1,10 @@
 ﻿using Beacon.API.Plugins;
+using Beacon.PluginEngine;
 
 namespace Beacon.Server.Plugins
 {
-    internal interface IPluginLoader
+    public interface IPluginLoader
     {
-        ValueTask<List<IPluginContext>> LoadPluginContexts(CancellationToken cToken = default);
+        ValueTask<List<IPluginContainer>> LoadAsync(CancellationToken cToken = default);
     }
 }

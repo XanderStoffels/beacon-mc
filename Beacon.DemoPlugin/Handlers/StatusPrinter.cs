@@ -8,10 +8,9 @@ using System.Threading.Tasks;
 
 namespace Beacon.DemoPlugin.Handlers
 {
-    internal class StatusPrinter
-        : IMinecraftEventHandler<ServerStatusRequestedEvent>
+    internal class StatusPrinter : MinecraftEventHandler<ServerStatusRequestedEvent>
     {
-        public ValueTask HandleAsync(ServerStatusRequestedEvent e, CancellationToken cancelToken)
+        public override ValueTask HandleAsync(ServerStatusRequestedEvent e, CancellationToken cancelToken)
         {
             e.ServerStatus.Description.Text = "Message altered by a plugin";
             return ValueTask.CompletedTask;

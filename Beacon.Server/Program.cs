@@ -1,20 +1,13 @@
-﻿using Beacon.API;
-using Beacon.Server;
-using Beacon.Server.Plugins;
-using Beacon.Server.Plugins.Events;
+﻿using Beacon.Server;
 using Beacon.Server.States;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Events;
 using System.Reflection;
+using Beacon.Server.Plugins;
+using Beacon.Server.Plugins.Local.Loading;
 
-
-#if NET6_0_WINDOWS_OR_GREATER
-
-Console.WriteLine("Nice");
-
-#endif
 
 // Show logo.
 var serverVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3);
@@ -49,15 +42,10 @@ try
             services.AddTransient<HandshakeState>();
             services.AddTransient<StatusState>();
 
-
-            services.AddSingleton<IPluginLoader, FilePluginLoader>();
             services.AddSingleton<IPluginController, PluginController>();
+            services.AddTransient<IPluginLoader, LocalAssemblyPluginLoader>();
             services.AddSingleton<BeaconServer>();
-
-            // services.AddSingleton<BeaconServer>();
-            // services.AddSingleton<IServer>(provider => provider.GetRequiredService<BeaconServer>());
-            
-            
+  
             services.AddHostedService<BeaconServer>();
 
         })

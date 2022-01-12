@@ -30,13 +30,17 @@
 
 
 	<ItemGroup>
-		<PackageReference Include="Beacon.API" Version="0.1.1" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="6.0.0" />
 		<PackageReference Include="Microsoft.Extensions.ObjectPool" Version="6.0.1" />
 		<PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.0" />
 		<PackageReference Include="Serilog.Extensions.Hosting" Version="4.2.0" />
 		<PackageReference Include="Serilog.Sinks.Console" Version="4.0.1" />
+	</ItemGroup>
+
+
+	<ItemGroup>
+	  <ProjectReference Include="..\..\beacon-mc-api\Beacon.API\Beacon.API.csproj" />
 	</ItemGroup>
 
 </Project>

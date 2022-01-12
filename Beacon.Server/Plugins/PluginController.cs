@@ -1,138 +1,100 @@
-﻿using Beacon.API;
-using Beacon.API.Events;
-using Beacon.API.Events.Handling;
-using Beacon.Server.Plugins.Events;
+﻿using Beacon.PluginEngine;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Serilog;
 
 namespace Beacon.Server.Plugins
 {
-    internal class PluginController : IPluginController, IMinecraftEventBus
+    internal class PluginController : IPluginController
     {
         private readonly ILogger<PluginController> _logger;
-        private readonly IPluginLoader _loader;
-        private readonly List<IPluginContext> _loadedContexts;
-        private IServiceProvider? _pluginServices;
-
-        public bool IsInitialized => _pluginServices != null;
-
-        public PluginController(IPluginLoader loader, ILogger<PluginController> logger)
+        private readonly List<IPluginLoader> _pluginLoaders;
+        private readonly List<IPluginContainer> _containers;
+        private IServiceProvider? _pluginServiceProvider;
+        public PluginController(ILogger<PluginController> logger, IServiceProvider provider)
         {
-            _loader = loader;
             _logger = logger;
-            _loadedContexts = new();
+            _pluginLoaders = provider.GetServices<IPluginLoader>().ToList();
+            _containers = new();
         }
 
-        public async ValueTask LoadAsync(IServer server)
+        public async ValueTask LoadAsync()
         {
-            if (IsInitialized) return;
+            if (_containers.Any())
+                return;
 
-            _loadedContexts.Clear();
-            _logger.LogInformation("Loading plugins");
-
-            var faultedPlugins = new List<IPluginContext>();
-            var contexts = await _loader.LoadPluginContexts();
-            _logger.LogInformation("{amount} plugins discovered", contexts.Count);
-
-            // Add services to and from plugins.
-            var services = new ServiceCollection()
-                .AddSingleton(provider => server)
-                .AddSingleton<IMinecraftEventBus>(provider => this)
-                .AddLogging();
-
-            foreach (var context in contexts)
+            var configuredContainers = new List<IPluginContainer>();
+            var services = new ServiceCollection();
+            foreach (var loader in _pluginLoaders)
             {
-                _logger.LogDebug("Configuring services for plugin {pluginname}", context.Plugin.Name);
-                try
+                _logger.LogInformation("Using {name} to load plugins", loader.GetType().Name);
+                var containers = await loader.LoadAsync();
+                if (containers == null) continue;
+                if (!containers.Any()) continue;
+
+                // Try to add services from each loaded plugin.
+                foreach (var container in containers)
                 {
-                    context.Plugin.RegisterServices(services);
-                }
-                catch (Exception e)
-                {
-                    faultedPlugins.Add(context);
-                    _logger.LogWarning(e, "{pluginname} threw an exception while configuring services", context.Plugin.Name);
+                    if (container.Plugin == null)
+                    {
+                        _logger.LogWarning("PluginContainer {name} does not contain a plugin while configuring! Is it already unloaded?", container.Name);
+                        continue;
+                    }
+
+                    try
+                    {
+                        container.Plugin.ConfigureServices(services);
+                        configuredContainers.Add(container);
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.LogWarning(e, "Could not configure services for plugin {name}", container.Plugin.Name);
+                    }
                 }
             }
 
-            // Clear out the plugins that crashed while adding services.
-            contexts = contexts.Except(faultedPlugins).ToList();
-            faultedPlugins.Clear();
+            _pluginServiceProvider = services.BuildServiceProvider();
 
-            _pluginServices = services.BuildServiceProvider();
-
-            // Enable all plugins that loaded correctly registered their services.
-            foreach (var context in contexts)
+            // Only enable the plugins when all plugins have registered their services.
+            foreach (var container in configuredContainers)
             {
-                _logger.LogDebug("Enabling {pluginname}", context.Plugin.Name);
+                if (container.Plugin == null)
+                {
+                    _logger.LogWarning("PluginContainer {name} does not contain a plugin while enabling! Is it already unloaded?", container.Name);
+                    continue;
+                }
                 try
                 {
-                    await context.Plugin.Enable();
+                    await container.Plugin.EnableAsync();
+                    _containers.Add(container);
+                    _logger.LogInformation("Plugin {name} loaded", container.Plugin.Name);
                 }
                 catch (Exception e)
                 {
-                    faultedPlugins.Add(context);
-                    _logger.LogWarning(e, "{pluginname} threw an exception while enabling!", context.Plugin.Name);
+                    _logger.LogWarning(e, "Could not enable plugin {name}", container.Plugin.Name);
                 }
             }
 
-            contexts = contexts.Except(faultedPlugins).ToList();
-            _loadedContexts.AddRange(contexts);
-            _logger.LogInformation("{amount} plugins loaded", _loadedContexts.Count);
         }
-
-        public IReadOnlyList<IMinecraftEventHandler<TEvent>> GetPluginEventHandlers<TEvent>() where TEvent : MinecraftEvent
-            => _pluginServices == null 
-                ? new()
-                : _pluginServices.GetServices<IMinecraftEventHandler<TEvent>>().ToList();
 
         public async ValueTask UnloadAsync()
         {
-            _logger.LogInformation("Unloading all plugins");
-            _pluginServices = null;
-            foreach (var context in _loadedContexts)
-            {
-                _logger.LogInformation("Unloading plugin {name}", context.Plugin.Name);
-                await context.DisposeAsync();
-            }
-            _loadedContexts.Clear();
+            _pluginServiceProvider = null;
+
+            foreach (var container in _containers)
+                await (container.Plugin?.DisableAsync() ?? ValueTask.CompletedTask);
+
+            foreach (var container in _containers)
+                await container.UnloadAsync();
+
+            _containers.Clear();
+
         }
 
-        public async ValueTask ReloadAsync(IServer server)
+        public ValueTask PublishEvent<TEvent>(TEvent e, CancellationToken cToken = default)
         {
-            // Unload plugins.
-            await UnloadAsync();
-
-            // Load plugins.
-            await LoadAsync(server);
+            throw new NotImplementedException();
         }
 
-        public async ValueTask<TEvent> FireEventAsync<TEvent>(TEvent e, CancellationToken cToken = default) where TEvent : MinecraftEvent
-        {
-            foreach (var handler in this.GetPluginEventHandlers<TEvent>())
-            {
-                if (cToken.IsCancellationRequested)
-                    e.IsCancelled = true;
-
-                if (e.IsCancelled)
-                    return e;
-
-                try
-                {
-                    await handler.HandleAsync(e, cToken);
-                }
-                catch (TaskCanceledException) when (cToken.IsCancellationRequested)
-                {
-                    e.IsCancelled = true;
-                    return e;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Handler {name} threw an exception while handing event {eventname}!", nameof(handler), nameof(TEvent));
-                }
-            }
-            return e;
-        }
 
     }
 }

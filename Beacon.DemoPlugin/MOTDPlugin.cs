@@ -12,18 +12,18 @@ namespace Beacon.DemoPlugin
 
         public Version Version => new(0, 1);
 
-        public ValueTask Enable()
+        public ValueTask EnableAsync()
         {
             return ValueTask.CompletedTask;
         }
 
-        public ValueTask Disable()
+        public ValueTask DisableAsync()
         {
             return ValueTask.CompletedTask;
         }
 
         
-        public void RegisterServices(IServiceCollection services)
+        public void ConfigureServices(IServiceCollection services)
         {
             services.AddEventHandler<ServerStatusRequestedEvent, StatusPrinter>();
         }

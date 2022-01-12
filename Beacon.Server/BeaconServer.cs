@@ -1,4 +1,5 @@
 ﻿using Beacon.API;
+using Beacon.API.Events;
 using Beacon.API.Models;
 using Beacon.Server.Config;
 using Beacon.Server.Net;
@@ -35,13 +36,19 @@ namespace Beacon.Server
             _plugins = plugins;
         }
 
-        public ValueTask ReloadAysnc()
+        public async ValueTask ReloadAsync()
         {
             using var scope = _logger.BeginScope("ServerReload");
             _logger.LogInformation("Reloading server");
-            return _plugins.ReloadAsync(this);
+
+            await _plugins.UnloadAsync();
+            await _plugins.LoadAsync();
         }
+
         public Version Version => GetType().Assembly.GetName().Version ?? new();
+
+        public IMinecraftEventBus EventBus => throw new NotImplementedException();
+
         public ValueTask<ServerStatus> GetStatusAsync()
         {
             return ValueTask.FromResult(new ServerStatus()
@@ -95,7 +102,7 @@ namespace Beacon.Server
             var watch = Stopwatch.StartNew();
 
             // Plugins
-            await _plugins.LoadAsync(this);
+            await _plugins.LoadAsync();
 
             watch.Stop();
             _logger.LogInformation("Server booted in {seconds} seconds", watch.ElapsedMilliseconds / 1000.0);
@@ -132,12 +139,13 @@ namespace Beacon.Server
             await JsonSerializer.SerializeAsync(file.OpenWrite(), Configuration);
 
         }
-        private async Task AcceptCommandLineInput(CancellationToken cToken)
+        private Task AcceptCommandLineInput(CancellationToken cToken)
         {
             while (!cToken.IsCancellationRequested)
             {
                 Console.ReadLine();
             }
+            return Task.CompletedTask;
         }
         private async Task AccecptConnectionsAsync(CancellationToken cToken)
         {
@@ -160,5 +168,7 @@ namespace Beacon.Server
                
             }
         }
+
+
     }
 }

@@ -2,7 +2,6 @@
 using Beacon.Server.Net.Packets.Clientbound;
 using Microsoft.Extensions.Logging;
 using Beacon.API.Events;
-using Beacon.Server.Plugins.Events;
 
 namespace Beacon.Server.States
 {
