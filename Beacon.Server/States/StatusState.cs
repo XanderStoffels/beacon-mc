@@ -1,63 +1,66 @@
 ﻿using Beacon.Server.Net;
-using Beacon.Server.Net.Packets.Clientbound;
 using Microsoft.Extensions.Logging;
 using Beacon.API.Events;
+using Beacon.Server.Net.Packets;
+using Beacon.Server.Utils;
 
 namespace Beacon.Server.States
 {
-    internal class StatusState : IClientState
+    internal class StatusState : IConnectionState
     {
-        private readonly ILogger<StatusState> _logger;
         private readonly IMinecraftEventBus _eventBus;
-        private bool _hasReceivedPacket = false;
-
-        public StatusState(ILogger<StatusState> logger, IMinecraftEventBus plugins)
+        private readonly ILogger _logger;
+        private readonly IBeaconConnection _connection;
+        private bool _hasReceivedPacket;
+        public StatusState(IBeaconConnection connection)
         {
-            _logger = logger;
-            _eventBus = plugins;
+            _hasReceivedPacket = false;
+            _connection = connection;
+            _logger = connection.Server.Logger;
+            _eventBus = connection.Server.EventBus; 
         }
 
-        public async ValueTask HandlePacketAsync(BeaconConnection connection, int packetId, Stream packetData, CancellationToken cToken)
+        public async ValueTask HandlePacketAsync(int packetId, Stream packetData, CancellationToken cToken = default)
         {
             switch (packetId)
             {
                 case 0x00 when !_hasReceivedPacket:
-                    await HandleStatusRequest(connection, cToken);
+                    await HandleStatusRequest(_connection, cToken);
                     break;
 
                 case 0x00 when _hasReceivedPacket:
-                    _logger.LogDebug("{ip} has sent a packet that is not valid! Terminating connection", connection.Tcp.Client.RemoteEndPoint?.ToString() ?? "Unknown");
-                    connection.Close();
+                    _logger.LogDebug("{ip} has sent a packet that is not valid! Terminating connection", _connection.RemoteAddress);
+                    _connection.Dispose();
                     break;
 
                 case 0x01:
-                    await HandlePing(connection, packetData, cToken);
+                    await HandlePing(_connection, packetData, cToken);
                     break;
             }
         }
 
-        private static async ValueTask HandlePing(BeaconConnection connection, Stream packetData, CancellationToken cToken)
+
+        private static async ValueTask HandlePing(IBeaconConnection connection, Stream packetData, CancellationToken cToken)
         {
-            var pong = ClientboundStatusPong.Pool.Get();
-            await pong.HydrateAsync(packetData, cToken);
-            await pong.SerializeAsync(connection.GetStream(), cToken);
-            ClientboundStatusPong.Pool.Return(pong);
+            var pong = ObjectPool<ClientboundStatusPong>.Shared.Get();
+            await pong.DeserializeAsync(packetData, cToken);
+            await pong.SerializeAsync(connection.Stream, cToken);
+            ObjectPool<ClientboundStatusPong>.Shared.Return(pong);
         }
 
-        private async ValueTask HandleStatusRequest(BeaconConnection connection, CancellationToken cToken)
+        private async ValueTask HandleStatusRequest(IBeaconConnection connection, CancellationToken cToken)
         {
             var status = await connection.Server.GetStatusAsync();
-            var e = new ServerStatusRequestedEvent(connection.Tcp.Client.RemoteEndPoint, status);
+            var e = new ServerStatusRequestEvent(connection.Server, connection.RemoteAddress, status);
             await _eventBus.FireEventAsync(e, cToken);
 
             if (e.IsCancelled) return;
             
-            var packet = ClientboundStatusResponse.Pool.Get();
+            var packet = ObjectPool<ClientboundStatusResponse>.Shared.Get();
             packet.ServerStatus = status;
-            await packet.SerializeAsync(connection.GetStream(), cToken);
-            ClientboundStatusResponse.Pool.Return(packet);
+            await packet.SerializeAsync(connection.Stream, cToken);
             _hasReceivedPacket = true;
-
+            ObjectPool<ClientboundStatusResponse>.Shared.Return(packet);
         }
     }
 }

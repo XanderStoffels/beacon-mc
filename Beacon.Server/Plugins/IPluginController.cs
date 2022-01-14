@@ -4,6 +4,5 @@
     {
         public ValueTask LoadAsync();
         public ValueTask UnloadAsync();
-        public ValueTask PublishEvent<TEvent>(TEvent e, CancellationToken cToken = default);
     }
 }

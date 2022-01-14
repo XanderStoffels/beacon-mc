@@ -25,7 +25,9 @@ namespace Beacon.DemoPlugin
         
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddEventHandler<ServerStatusRequestedEvent, StatusPrinter>();
+            services.AddEventHandler<ServerStatusRequestEvent, StatusPrinter>();
+            services.AddEventHandler<TcpConnectedEvent, LocalHostBlocker>();
+
         }
     }
 }

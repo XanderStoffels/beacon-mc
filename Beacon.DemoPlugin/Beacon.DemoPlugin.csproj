@@ -11,4 +11,8 @@
     <ProjectReference Include="..\..\beacon-mc-api\Beacon.API\Beacon.API.csproj" />
   </ItemGroup>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="xcopy /y $(ProjectDir)$(OutDir)$(TargetFileName) $(SolutionDir)Beacon.Server\bin\Debug\net6.0\plugins\&#xD;&#xA;" />
+  </Target>
+
 </Project>

@@ -7,6 +7,9 @@ using Serilog.Events;
 using System.Reflection;
 using Beacon.Server.Plugins;
 using Beacon.Server.Plugins.Local.Loading;
+using Beacon.Server.Net;
+using Beacon.API.Events;
+using Beacon.API;
 
 
 // Show logo.
@@ -31,23 +34,24 @@ Log.Logger = new LoggerConfiguration()
             .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3} {Scope}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
 
-// Setup host and start server.
 try
 {
     await Host.CreateDefaultBuilder()
         .UseSerilog()
         .ConfigureServices((builder, services) =>
         {
-            // Add internal connection states.
-            services.AddTransient<HandshakeState>();
-            services.AddTransient<StatusState>();
-
-            services.AddSingleton<IPluginController, PluginController>();
-            services.AddTransient<IPluginLoader, LocalAssemblyPluginLoader>();
+            // Do not add Transient objects that are often going to be instantiated (like packets). They will never get collected by the GC and cause
+            // memory leaks because they are kept in scope by Microsoft's DI implementation. Consider using objectpools instead.
             services.AddSingleton<BeaconServer>();
+            services.AddSingleton<PluginController>();
+
+            services.AddSingleton<IServer>(provider => provider.GetRequiredService<BeaconServer>());
+            services.AddSingleton<IMinecraftEventBus>(provider => provider.GetRequiredService<PluginController>());
+            services.AddSingleton<IPluginController>(provider => provider.GetRequiredService<PluginController>());
+            services.AddSingleton<IPluginLoader, LocalAssemblyPluginLoader>();
+            
   
             services.AddHostedService<BeaconServer>();
-
         })
         .Build()
         .RunAsync();
