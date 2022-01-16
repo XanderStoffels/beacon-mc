@@ -1,5 +1,4 @@
 ﻿using Beacon.Server;
-using Beacon.Server.States;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
@@ -7,10 +6,8 @@ using Serilog.Events;
 using System.Reflection;
 using Beacon.Server.Plugins;
 using Beacon.Server.Plugins.Local.Loading;
-using Beacon.Server.Net;
 using Beacon.API.Events;
 using Beacon.API;
-
 
 // Show logo.
 var serverVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3);
@@ -49,8 +46,7 @@ try
             services.AddSingleton<IMinecraftEventBus>(provider => provider.GetRequiredService<PluginController>());
             services.AddSingleton<IPluginController>(provider => provider.GetRequiredService<PluginController>());
             services.AddSingleton<IPluginLoader, LocalAssemblyPluginLoader>();
-            
-  
+             
             services.AddHostedService<BeaconServer>();
         })
         .Build()

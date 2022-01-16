@@ -1,4 +1,5 @@
-﻿using Beacon.API.Events;
+﻿using Beacon.API.Commands;
+using Beacon.API.Events;
 using Beacon.API.Events.Handling;
 using Beacon.PluginEngine;
 using Microsoft.Extensions.DependencyInjection;
@@ -108,14 +109,14 @@ internal class PluginController : IPluginController, IMinecraftEventBus
         if (_pluginServiceProvider == null) return;
 
         var handlers = _pluginServiceProvider.GetServices<IMinecraftEventHandler<TEvent>>();
-        var c = e as ICancelable; // TODO: There has to be a better way. Will do for now I guess.
+        var ce = e as ICancelable; // TODO: There has to be a better way. Will do for now I guess.
 
         foreach (var handler in handlers)
         {
             if (cToken.IsCancellationRequested)
             {
-                if (c is not null)
-                    c.IsCancelled = true;
+                if (ce is not null)
+                    ce.IsCancelled = true;
                 return;
             }
 
@@ -125,8 +126,8 @@ internal class PluginController : IPluginController, IMinecraftEventBus
             }
             catch (TaskCanceledException)
             {
-                if (c is not null)
-                    c.IsCancelled = true;
+                if (ce is not null)
+                    ce.IsCancelled = true;
             }
             catch (Exception ex)
             {
@@ -135,10 +136,12 @@ internal class PluginController : IPluginController, IMinecraftEventBus
                     e.GetType().FullName);
             }
 
-            if (c is not null && c.IsCancelled)
+            if (ce is not null && ce.IsCancelled)
                 return;
         }
 
     }
 
+    public List<ICommand> GetRegisteredCommands() =>
+        _pluginServiceProvider == null ? new() : _pluginServiceProvider.GetServices<ICommand>().ToList();
 }

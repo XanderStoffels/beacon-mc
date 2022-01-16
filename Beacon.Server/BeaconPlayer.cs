@@ -1,21 +1,24 @@
-﻿using Beacon.API.Entities;
+﻿using Beacon.API;
+using Beacon.API.Entities;
 using Beacon.API.Models;
 using Beacon.API.Worlds;
 
-namespace Beacon.Server
+namespace Beacon.Server;
+
+internal class BeaconPlayer : IPlayer
 {
-    internal class BeaconPlayer : IPlayer
+    public IWorld World => throw new NotImplementedException();
+    public IServer Server => throw new NotImplementedException();
+
+    public ValueTask Destroy()
     {
-        public IWorld World => throw new NotImplementedException();
+        throw new NotImplementedException();
+    }
 
-        public ValueTask Destroy()
-        {
-            throw new NotImplementedException();
-        }
+    public Task SendMessageAsync(string message) => throw new NotImplementedException();
 
-        public ValueTask TeleportTo(Location location)
-        {
-            throw new NotImplementedException();
-        }
+    public ValueTask TeleportTo(Location location)
+    {
+        throw new NotImplementedException();
     }
 }

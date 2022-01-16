@@ -1,8 +1,11 @@
-﻿namespace Beacon.Server.Plugins
+﻿
+using Beacon.API.Commands;
+
+namespace Beacon.Server.Plugins;
+
+public interface IPluginController
 {
-    public interface IPluginController
-    {
-        public ValueTask LoadAsync();
-        public ValueTask UnloadAsync();
-    }
+    public ValueTask LoadAsync();
+    public ValueTask UnloadAsync();
+    public List<ICommand> GetRegisteredCommands();
 }

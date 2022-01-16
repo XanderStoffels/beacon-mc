@@ -1,33 +1,26 @@
 ﻿using Beacon.API;
 using Beacon.API.Events;
 using Beacon.API.Plugins;
+using Beacon.DemoPlugin.Commands;
 using Beacon.DemoPlugin.Handlers;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Beacon.DemoPlugin
+namespace Beacon.DemoPlugin;
+
+public class MOTDPlugin : IBeaconPlugin
 {
-    public class MOTDPlugin : IBeaconPlugin
-    {
-        public string Name => "Demo Plugin";
+    public string Name => "Demo Plugin";
+    public Version Version => new(0, 1);
 
-        public Version Version => new(0, 1);
+    public ValueTask EnableAsync() => ValueTask.CompletedTask;
+    public ValueTask DisableAsync() => ValueTask.CompletedTask;
 
-        public ValueTask EnableAsync()
-        {
-            return ValueTask.CompletedTask;
-        }
+    public void ConfigureServices(IServiceCollection services) =>
+         services
+            // Commands
+            .AddCommand<HelloCommand>()
 
-        public ValueTask DisableAsync()
-        {
-            return ValueTask.CompletedTask;
-        }
-
-        
-        public void ConfigureServices(IServiceCollection services)
-        {
-            services.AddEventHandler<ServerStatusRequestEvent, StatusPrinter>();
-            services.AddEventHandler<TcpConnectedEvent, LocalHostBlocker>();
-
-        }
-    }
+            // Events
+            .AddEventHandler<ServerStatusRequestEvent, StatusPrinter>()
+            .AddEventHandler<TcpConnectedEvent, LocalHostBlocker>();
 }
