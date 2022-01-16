@@ -27,7 +27,11 @@ internal class AutoCompleteNode
         if (depth >= parts.Length) return false;
 
         var input = parts[depth];
-        if (input.Length == 0) return false;
+        if (input.Length == 0)
+        {
+            hint = Options.Keys.FirstOrDefault();
+            return hint != null;
+        }
 
         if (Options.ContainsKey(input))
             return Options[input].Hint(parts, depth + 1, out hint);

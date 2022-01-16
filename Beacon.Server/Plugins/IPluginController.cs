@@ -7,5 +7,5 @@ public interface IPluginController
 {
     public ValueTask LoadAsync();
     public ValueTask UnloadAsync();
-    public List<ICommand> GetRegisteredCommands();
+    public List<BeaconCommand> GetRegisteredCommands();
 }

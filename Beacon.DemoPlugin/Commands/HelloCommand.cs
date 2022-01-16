@@ -1,19 +1,23 @@
 ﻿using Beacon.API.Commands;
-using Microsoft.Extensions.Logging;
 
 namespace Beacon.DemoPlugin.Commands;
 
-public class HelloCommand : ICommand
+public class HelloCommand : BeaconCommand
 {
-    public string Name => "hello there";
+    public override string Keyword => "hello";
 
-    public string Description => "Say hello to your server!";
+    public override string Description => "Say hello to your server!";
 
-    public string HelpText => @"¯\_(ツ)_/¯";
-
-    public ValueTask<bool> ExecuteAsync(ICommandSender sender, string[] args, CancellationToken cToken = default)
+    protected override ValueTask<bool> HandleAsync(ICommandSender sender, string[] args, CancellationToken cToken = default)
     {
-        sender.SendMessageAsync("Hi there!");
+        if (args.Length == 0)
+        {
+            sender.SendMessageAsync("Hi there!");
+        }
+        else
+        {
+            sender.SendMessageAsync($"Hi there, {string.Join(" ", args)}");
+        }
         return ValueTask.FromResult(true);
     }
 }

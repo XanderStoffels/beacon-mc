@@ -142,6 +142,6 @@ internal class PluginController : IPluginController, IMinecraftEventBus
 
     }
 
-    public List<ICommand> GetRegisteredCommands() =>
-        _pluginServiceProvider == null ? new() : _pluginServiceProvider.GetServices<ICommand>().ToList();
+    public List<BeaconCommand> GetRegisteredCommands() =>
+        _pluginServiceProvider == null ? new() : _pluginServiceProvider.GetServices<BeaconCommand>().ToList();
 }

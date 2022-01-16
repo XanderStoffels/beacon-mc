@@ -1,8 +1,10 @@
 ﻿using Beacon.API;
+using Beacon.API.Commands;
 using Beacon.API.Events;
 using Beacon.API.Models;
 using Beacon.Server.CLI;
 using Beacon.Server.Commands;
+using Beacon.Server.Commands.Builtins;
 using Beacon.Server.Config;
 using Beacon.Server.Net;
 using Beacon.Server.Plugins;
@@ -137,7 +139,11 @@ namespace Beacon.Server
         private async Task AcceptCommandLineInput(CancellationToken cToken)
         {
             var sender = new ConsoleSender(this);
-            var commands = _pluginController.GetRegisteredCommands();
+            var commands = new List<BeaconCommand>
+            {
+                new ServerCommand()
+            };
+            commands.AddRange(_pluginController.GetRegisteredCommands());
 
             var commandHandler = new CommandHandler(Logger, commands);
             var autoCompleteTree = commandHandler.GetAutoCompleteTree();          
@@ -147,17 +153,19 @@ namespace Beacon.Server
             {
                 var cmd = autoCompleteEngine.ReadHintedLine();
                 var ok = await commandHandler.HandleAsync(sender, cmd);
+                
                 if (!ok)
                 {
-                    Console.SetCursorPosition(0, Console.CursorTop - 1);
-                    var currentLineCursor = Console.CursorTop;
-                    Console.SetCursorPosition(0, Console.CursorTop);
-                    Console.Write(new string(' ', Console.WindowWidth));
-                    Console.SetCursorPosition(0, currentLineCursor);
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine(cmd);
-                    Console.ForegroundColor = ConsoleColor.Gray;
+                    //Console.SetCursorPosition(0, Console.CursorTop - 1);
+                    //var currentLineCursor = Console.CursorTop;
+                    //Console.SetCursorPosition(0, Console.CursorTop);
+                    //Console.Write(new string(' ', Console.WindowWidth));
+                    //Console.SetCursorPosition(0, currentLineCursor);
+                    //Console.ForegroundColor = ConsoleColor.Red;
+                    //Console.WriteLine(cmd);
+                    //Console.ForegroundColor = ConsoleColor.Gray;
                 }
+                
                     
             }
 
