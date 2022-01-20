@@ -136,40 +136,22 @@ namespace Beacon.Server
             await JsonSerializer.SerializeAsync(file.OpenWrite(), Configuration);
 
         }
-        private async Task AcceptCommandLineInput(CancellationToken cToken)
+        private Task AcceptCommandLineInput(CancellationToken cToken)
         {
             var sender = new ConsoleSender(this);
             var commands = new List<BeaconCommand>
             {
-                new ServerCommand()
+                new ServerCommand(this)
             };
             commands.AddRange(_pluginController.GetRegisteredCommands());
 
             var commandHandler = new CommandHandler(Logger, commands);
-            var autoCompleteTree = commandHandler.GetAutoCompleteTree();          
-            var autoCompleteEngine = new ConsoleAutoCompleter(autoCompleteTree);
-
-            while (!cToken.IsCancellationRequested)
-            {
-                var cmd = autoCompleteEngine.ReadHintedLine();
-                var ok = await commandHandler.HandleAsync(sender, cmd);
-                
-                if (!ok)
-                {
-                    //Console.SetCursorPosition(0, Console.CursorTop - 1);
-                    //var currentLineCursor = Console.CursorTop;
-                    //Console.SetCursorPosition(0, Console.CursorTop);
-                    //Console.Write(new string(' ', Console.WindowWidth));
-                    //Console.SetCursorPosition(0, currentLineCursor);
-                    //Console.ForegroundColor = ConsoleColor.Red;
-                    //Console.WriteLine(cmd);
-                    //Console.ForegroundColor = ConsoleColor.Gray;
-                }
-                
-                    
-            }
-
+            var autoCompleteTree = commandHandler.GetAutoCompleteTree();
+            var consoleHandler = new ConsoleHandler(autoCompleteTree);
+            consoleHandler.EnteredCommand += async (_, cmd) => await commandHandler.HandleAsync(sender, cmd, cToken);
+            return consoleHandler.Handle(cToken);
         }
+
         private async Task AccecptConnectionsAsync(CancellationToken cToken)
         {
             Logger.LogInformation("Start listening for clients");

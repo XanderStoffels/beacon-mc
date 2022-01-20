@@ -3,7 +3,7 @@ using Beacon.API.Entities;
 using Beacon.API.Models;
 using Beacon.API.Worlds;
 
-namespace Beacon.Server;
+namespace Beacon.Server.Entities;
 
 internal class BeaconPlayer : IPlayer
 {

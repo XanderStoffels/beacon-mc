@@ -2,24 +2,38 @@
 
 namespace Beacon.Server.CLI;
 
-internal class ConsoleAutoCompleter
+internal class ConsoleHandler
 {
     private readonly AutoCompleteNode _root;
     private const string _inputRegex = ".*";
     private LinkedList<string> _history;
     private const int MaxHistory = 25;
 
+    public event EventHandler<string> EnteredCommand;
+
     public ConsoleColor HintColor { get; set; }
     public ConsoleColor OkColor { get; set; }
-    public ConsoleAutoCompleter(AutoCompleteNode root)
+    public ConsoleHandler(AutoCompleteNode root)
     {
         _root = root;
         _history = new LinkedList<string>();
         HintColor = ConsoleColor.DarkGray;
-        OkColor = ConsoleColor.DarkGreen;
+        OkColor = ConsoleColor.Gray;
     }
 
-    public string ReadHintedLine(ConsoleColor hintColor = ConsoleColor.DarkGray)
+    public Task Handle(CancellationToken ctoken)
+    {
+        while (!ctoken.IsCancellationRequested)
+        {
+            var cmd = ReadHintedLine();
+            if (!string.IsNullOrWhiteSpace(cmd))
+                EnteredCommand?.Invoke(this, cmd);
+        }
+            
+        return Task.CompletedTask;
+    }
+
+    private string ReadHintedLine(ConsoleColor hintColor = ConsoleColor.DarkGray)
     {
         ConsoleKeyInfo input;
 
@@ -98,11 +112,14 @@ internal class ConsoleAutoCompleter
             Console.ForegroundColor = originalColor;
         }
 
-        AddToHistory(readLine);
-        Console.WriteLine();
+        if (readLine.Length != 0)
+        {
+            AddToHistory(readLine);
+            Console.WriteLine();
+        }
+
         return userInput.Any() ? readLine : string.Empty;
     }
-
     private void AddToHistory(string readLine)
     {
         if (_history.Count >= MaxHistory)       
@@ -110,7 +127,6 @@ internal class ConsoleAutoCompleter
         
         _history.AddFirst(readLine);
     }
-
     private static void ClearCurrentConsoleLine()
     {
         var currentLineCursor = Console.CursorTop;

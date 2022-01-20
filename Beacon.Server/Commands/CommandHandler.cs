@@ -11,12 +11,29 @@ internal class CommandHandler : ICommandHandler
     private readonly ILogger _logger;
     private readonly Dictionary<string, BeaconCommand> _commandLookup;
     private readonly AutoCompleteNode _autoComplete;
+    public CommandHandler(ILogger logger) : this(logger, new())
+    {
+    }
+
     public CommandHandler(ILogger logger, List<BeaconCommand> commands)
     {
         _logger = logger;
         _commandLookup = new(commands.Count);
+        RegisterBaseCommands();
         RegisterCommands(commands);
         _autoComplete = BuildAutocompletionTree();
+    }
+
+
+    private void RegisterBaseCommands()
+    {
+        var builtins = typeof(CommandHandler).Assembly.GetTypes()
+            .Where(t => !t.IsAbstract && !t.IsInterface && typeof(BeaconCommand).IsAssignableTo(t))
+            .Select(t => Activator.CreateInstance(t))
+            .Cast<BeaconCommand>()
+            .ToList();
+
+        RegisterCommands(builtins);
     }
 
     private AutoCompleteNode BuildAutocompletionTree()
@@ -42,7 +59,6 @@ internal class CommandHandler : ICommandHandler
         }
         return root;
     }
-
     private void RegisterCommands(List<BeaconCommand> commands)
     {
         foreach (var cmd in commands)
@@ -59,7 +75,6 @@ internal class CommandHandler : ICommandHandler
             _logger.LogWarning("Command '{cmd}' was already registered. Skipping this one", cmd.Keyword);
         }
     }
-
     public ValueTask<bool> HandleAsync(ICommandSender sender, string command, CancellationToken cToken = default)
     {
         if (string.IsNullOrWhiteSpace(command))
