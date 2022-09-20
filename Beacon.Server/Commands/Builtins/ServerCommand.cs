@@ -11,11 +11,8 @@ internal class ServerCommand : BeaconCommand
     public ServerCommand(IServer server)
     {
         _server = server;
-    }
-
-    protected override void RegisterSubCommands()
-    {
         AddSubCommand("version", HandleServerStop);
+
     }
 
     private async ValueTask<bool> HandleServerStop(ICommandSender sender, string[] args, CancellationToken cToken = default)

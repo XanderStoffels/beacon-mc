@@ -15,10 +15,7 @@ namespace Beacon.Server.Plugins.Local
         protected override Assembly? Load(AssemblyName assemblyName)
         {
             string? assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
-            if (assemblyPath == null)
-                return null;
-
-            return LoadFromAssemblyPath(assemblyPath);
+            return assemblyPath == null ? null : LoadFromAssemblyPath(assemblyPath);
         }
 
     }

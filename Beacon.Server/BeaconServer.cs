@@ -151,7 +151,6 @@ namespace Beacon.Server
             consoleHandler.EnteredCommand += async (_, cmd) => await commandHandler.HandleAsync(sender, cmd, cToken);
             return consoleHandler.Handle(cToken);
         }
-
         private async Task AccecptConnectionsAsync(CancellationToken cToken)
         {
             Logger.LogInformation("Start listening for clients");

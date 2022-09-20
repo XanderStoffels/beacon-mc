@@ -5,7 +5,6 @@ namespace Beacon.DemoPlugin.Commands;
 public class HelloCommand : BeaconCommand
 {
     public override string Keyword => "hello";
-
     public override string Description => "Say hello to your server!";
 
     protected override ValueTask<bool> HandleAsync(ICommandSender sender, string[] args, CancellationToken cToken = default)

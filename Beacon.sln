@@ -14,6 +14,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beacon.API", "..\beacon-mc-api\Beacon.API\Beacon.API.csproj", "{1C5BC4A3-5081-4502-93F4-8961E89F7601}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beacon.Plugins", "Beacon.Server.Plugins\Beacon.Plugins.csproj", "{EF17617C-DB63-4692-BD11-D5AF59A7DC0E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DemoPlugins", "DemoPlugins", "{67D8062C-5349-4181-AF90-B38B9CBB92BF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,9 +36,16 @@ Global
 		{1C5BC4A3-5081-4502-93F4-8961E89F7601}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1C5BC4A3-5081-4502-93F4-8961E89F7601}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1C5BC4A3-5081-4502-93F4-8961E89F7601}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EF17617C-DB63-4692-BD11-D5AF59A7DC0E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EF17617C-DB63-4692-BD11-D5AF59A7DC0E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EF17617C-DB63-4692-BD11-D5AF59A7DC0E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EF17617C-DB63-4692-BD11-D5AF59A7DC0E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A34B3EF2-455D-4630-841B-6F6B24551C7C} = {67D8062C-5349-4181-AF90-B38B9CBB92BF}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F169B753-FA15-45C8-B4E8-F1488E97F8ED}

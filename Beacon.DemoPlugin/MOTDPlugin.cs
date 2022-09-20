@@ -19,6 +19,7 @@ public class MOTDPlugin : IBeaconPlugin
          services
             // Commands
             .AddCommand<HelloCommand>()
+            .AddCommand<ClearCommand>()
 
             // Events
             .AddEventHandler<ServerStatusRequestEvent, StatusPrinter>()
