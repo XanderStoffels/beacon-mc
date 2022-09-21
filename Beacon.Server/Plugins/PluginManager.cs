@@ -22,6 +22,12 @@ internal class PluginManager : IMinecraftEventBus
 		var pluginSerivcesLookup = new Dictionary<PluginContainer, IServiceCollection>();
 		var publicServices = new ServiceCollection();
 
+        if (_loaders.Count == 0)
+        {
+            _logger.LogWarning("No plugin loaders found. Plugins will not be loaded.");
+            return;
+        }
+
         // Configure the public and local services for each plugin.
         foreach (var loader in _loaders) 
 		{
@@ -45,6 +51,7 @@ internal class PluginManager : IMinecraftEventBus
 			var store = new ServiceStore(localServices, publicProvider);
 			container.ServiceStore = store;
 			await container.EnableAsync();
+			_logger.LogInformation("Enabled plugin {name}", container.PluginName);
         }  
 	}
 

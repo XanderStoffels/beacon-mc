@@ -1,4 +1,5 @@
 ﻿using Beacon.API.Events;
+using Beacon.Plugins;
 using Beacon.Server.Plugins;
 using Beacon.Server.Plugins.Local;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +16,7 @@ public static class DependencyInjection
         
         services.AddSingleton(options);
         services.AddSingleton<LocalAssemblyPluginLoader>();
+        services.AddSingleton<IPluginLoader, LocalAssemblyPluginLoader>();
         services.AddSingleton<PluginManager>();
         services.AddSingleton<IMinecraftEventBus>(p => p.GetRequiredService<PluginManager>());
         services.AddHostedService<BeaconServer>();
