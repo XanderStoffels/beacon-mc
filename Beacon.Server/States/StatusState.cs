@@ -9,14 +9,12 @@ namespace Beacon.Server.States
     internal class StatusState : IConnectionState
     {
         private readonly IMinecraftEventBus _eventBus;
-        private readonly ILogger _logger;
         private readonly IBeaconConnection _connection;
         private bool _hasReceivedPacket;
         public StatusState(IBeaconConnection connection)
         {
             _hasReceivedPacket = false;
             _connection = connection;
-            _logger = connection.Server.Logger;
             _eventBus = connection.Server.EventBus; 
         }
 
@@ -29,7 +27,6 @@ namespace Beacon.Server.States
                     break;
 
                 case 0x00 when _hasReceivedPacket:
-                    _logger.LogDebug("{ip} has sent a packet that is not valid! Terminating connection", _connection.RemoteAddress);
                     _connection.Dispose();
                     break;
 

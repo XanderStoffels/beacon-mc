@@ -1,9 +1,9 @@
 ﻿using Beacon.API.Plugins;
-using Beacon.PluginEngine;
+using Beacon.Plugins;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
 
-namespace Beacon.Server.Plugins.Local.Loading;
+namespace Beacon.Server.Plugins.Local;
 
 public class LocalAssemblyPluginLoader : IPluginLoader
 {
@@ -21,29 +21,29 @@ public class LocalAssemblyPluginLoader : IPluginLoader
         _maxVersion = _minVersion;
     }
 
-    public ValueTask<List<IPluginContainer>> LoadAsync(CancellationToken cToken = default)
+    public Task<List<PluginContainer>> LoadAsync(CancellationToken cToken = default)
     {
         // Create folder if it does not exist.
         _pluginFolder.Create();
 
         var files = _pluginFolder.GetFiles("*.dll");
-        var loadedPlugins = new List<IPluginContainer>(files.Length);
+        var loadedPlugins = new List<PluginContainer>(files.Length);
 
         foreach (var file in files)
         {
-            var context = CreateContextFromFile(file);
+            var context = CreateContainerFromFile(file);
             // No warning log needed here, problems are logged in CreateContextFromFile.
             if (context == null) continue;
             loadedPlugins.Add(context);
-            _logger.LogInformation("Discovered plugin {pluginname} v{version}", context.Plugin?.Name, context.Plugin?.Version.ToString());
+            _logger.LogInformation("Discovered plugin {pluginname} v{version}", context.PluginName, context.PluginVersion.ToString());
         }
 
-        return ValueTask.FromResult(loadedPlugins);
+        return Task.FromResult(loadedPlugins);
     }
 
-    private PluginAssemblyContainer? CreateContextFromFile(FileInfo file)
+    private PluginContainer? CreateContainerFromFile(FileInfo file)
     {
-        var loadContext = new PluginAssemblyLoadContext(file);
+        var loadContext = new PluginLoadContext(file);
         var assembly = loadContext.LoadFromAssemblyPath(file.FullName);
         Type? pluginType = default;
 
@@ -94,7 +94,7 @@ public class LocalAssemblyPluginLoader : IPluginLoader
         try
         {
             if (Activator.CreateInstance(pluginType) is IBeaconPlugin plugin)
-                return new PluginAssemblyContainer(plugin, loadContext);
+                return new PluginContainer(loadContext, assembly, plugin);
 
             _logger.LogError("Could not create an instance of plugin from assembly {filename}!", file.Name);
             return null;
@@ -105,4 +105,6 @@ public class LocalAssemblyPluginLoader : IPluginLoader
             return null;
         }
     }
+
+
 }

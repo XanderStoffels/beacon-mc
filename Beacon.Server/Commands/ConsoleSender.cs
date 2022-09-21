@@ -15,7 +15,6 @@ internal class ConsoleSender : ICommandSender
 
     public Task SendMessageAsync(string message)
     {
-        Server.Logger.LogInformation("{m}", message);
         return Task.CompletedTask;
     }
 }

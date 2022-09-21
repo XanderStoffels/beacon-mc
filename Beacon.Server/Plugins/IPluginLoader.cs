@@ -1,10 +1,8 @@
-﻿using Beacon.API.Plugins;
-using Beacon.PluginEngine;
+﻿using Beacon.Server.Plugins;
 
-namespace Beacon.Server.Plugins
+namespace Beacon.Plugins;
+
+internal interface IPluginLoader
 {
-    public interface IPluginLoader
-    {
-        ValueTask<List<IPluginContainer>> LoadAsync(CancellationToken cToken = default);
-    }
+    public Task<List<PluginContainer>> LoadAsync(CancellationToken cToken = default);
 }

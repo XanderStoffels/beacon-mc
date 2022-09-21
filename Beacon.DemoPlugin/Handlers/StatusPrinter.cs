@@ -10,10 +10,10 @@ namespace Beacon.DemoPlugin.Handlers
 {
     internal class StatusPrinter : MinecraftEventHandler<ServerStatusRequestEvent>
     {
-        public override ValueTask HandleAsync(ServerStatusRequestEvent e, CancellationToken cancelToken)
+        public override Task HandleAsync(ServerStatusRequestEvent e, CancellationToken cancelToken)
         {
             e.ServerStatus.Description.Text = "Message altered by a plugin";
-            return ValueTask.CompletedTask;
+            return Task.CompletedTask;
         }
     }
 }

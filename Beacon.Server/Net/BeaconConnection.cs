@@ -1,7 +1,6 @@
 ﻿using Beacon.API;
 using Beacon.Server.States;
 using Beacon.Server.Utils;
-using Microsoft.Extensions.Logging;
 using System.Net.Sockets;
 
 namespace Beacon.Server.Net;
@@ -13,7 +12,6 @@ internal class BeaconConnection : IBeaconConnection
     public string RemoteAddress { get; }
     public bool IsListening { get; private set; }
 
-    private readonly ILogger _logger;
     private IConnectionState _state;
 
     public BeaconConnection(IServer server, TcpClient tcp)
@@ -22,7 +20,6 @@ internal class BeaconConnection : IBeaconConnection
         Server = server;
         IsListening = false;
         RemoteAddress = Tcp.Client.RemoteEndPoint?.ToString() ?? "";
-        _logger = server.Logger;
         _state = new HandshakeState(this);
     }
 
@@ -59,9 +56,8 @@ internal class BeaconConnection : IBeaconConnection
                 if (_state is null) throw new InvalidOperationException("The connection has no state!");
                 await this._state.HandlePacketAsync(packetId, dataStream, cancelToken);
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                _logger.LogError(e, "Lost connection to a client due to unhandled exception while handling packet!");
                 Dispose();
                 throw;
             }
