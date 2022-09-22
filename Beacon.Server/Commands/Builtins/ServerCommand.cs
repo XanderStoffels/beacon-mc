@@ -17,7 +17,7 @@ internal class ServerCommand : BeaconCommand
 
     private async ValueTask<bool> HandleServerStop(ICommandSender sender, string[] args, CancellationToken cToken = default)
     {
-        await sender.SendMessageAsync($"Beacon Server v{_server.Version.ToString()}");
+        await sender.SendMessageAsync($"Beacon Server v{BeaconServer.Version} for Minecraft {BeaconServer.McVersion}");
         return true;
     }
 }

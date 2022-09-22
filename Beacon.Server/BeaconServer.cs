@@ -95,8 +95,8 @@ public class BeaconServer : BackgroundService, IServer
         var watch = Stopwatch.StartNew();
         await InitializeAsync();
         watch.Stop();
-        var ellapsed = watch.ElapsedMilliseconds / 1000.0;
-        _logger.LogInformation("Server booted in {Seconds} seconds", ellapsed);
+        
+        _logger.LogInformation("Server booted in {Seconds} seconds", watch.ElapsedMilliseconds / 1000.0);
 
         await Task.WhenAny(
             AccecptConnectionsAsync(cToken),
