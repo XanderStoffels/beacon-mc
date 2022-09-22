@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging.Console;
 using Serilog;
 
 var serverVersion = BeaconServer.VERSION.ToString(3);
-var mcVersion = BeaconServer.MC_VERSION.ToString(3);
+var mcVersion = BeaconServer.McVersion.ToString(3);
 
 Console.WriteLine(Resources.LOGO
     .Replace("{VERSION}", serverVersion)

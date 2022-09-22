@@ -4,13 +4,13 @@ using Microsoft.Extensions.Logging;
 
 namespace Beacon.DemoPlugin.Handlers;
 
-internal class LocalHostBlocker : MinecraftEventHandler<TcpConnectedEvent>
+internal class LocalHostBlocker : IMinecraftEventHandler<TcpConnectedEvent>
 {
-    public override Task HandleAsync(TcpConnectedEvent e, CancellationToken cancelToken)
+    public Priority Priority => Priority.NORMAL;
+
+    public Task HandleAsync(TcpConnectedEvent e, CancellationToken cancelToken)
     {
-        if (e.Connection.RemoteAddress.StartsWith("127.0.0.1")) {
-            e.IsCancelled = true;
-        }
+        e.IsCancelled = e.Connection.RemoteAddress.StartsWith("127.0.0.1");
         return Task.CompletedTask;
     }
 }

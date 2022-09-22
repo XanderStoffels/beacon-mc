@@ -35,4 +35,9 @@ internal class ServiceStore : IServiceStore
         var service = _privateServices.GetService<TService>();
         return service ?? throw new ServiceNotFoundException(typeof(TService).Name);
     }
+
+    internal IEnumerable<TService> GetServices<TService>()
+    {
+        return _privateServices.GetServices<TService>().ToList();  
+    }
 }

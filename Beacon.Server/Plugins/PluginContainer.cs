@@ -1,28 +1,36 @@
-﻿using Beacon.API.Plugins;
-using Beacon.API.Plugins.Services;
+﻿using Beacon.API.Commands;
+using Beacon.API.Events;
+using Beacon.API.Events.Handling;
+using Beacon.API.Plugins;
 using Beacon.Server.Plugins.Services;
 using Microsoft.Extensions.DependencyInjection;
-using System;
 using System.Reflection;
+using System.Threading;
 
 namespace Beacon.Server.Plugins;
 
-public class PluginContainer : IAsyncDisposable
+public sealed class PluginContainer : IAsyncDisposable
 {
     private PluginLoadContext _loadContext;
     private Assembly _assembly;    
     private IBeaconPlugin _plugin;
 
-    internal IServiceStore? ServiceStore { get; set; }
+    internal ServiceStore? ServiceStore { get; private set; }
     internal bool IsDisposed { get; private set; }
     internal string PluginName => new(_plugin.Name.ToArray());
     internal Version PluginVersion => (Version)_plugin.Version.Clone();
+
+    private readonly List<BeaconCommand> _commands;
+    private readonly Dictionary<Type, List<IMinecraftEventHandler<MinecraftEvent>>> _eventHandlers;
+
 
     internal PluginContainer(PluginLoadContext loadContext, Assembly assembly, IBeaconPlugin plugin)
     {
         _loadContext = loadContext;
         _assembly = assembly;
         _plugin = plugin;
+        _commands = new();
+        _eventHandlers = new();
     }
 
     public async ValueTask DisposeAsync()
@@ -51,5 +59,28 @@ public class PluginContainer : IAsyncDisposable
         if (IsDisposed) throw new ObjectDisposedException(GetType().FullName);
         if (ServiceStore is null) throw new InvalidOperationException("ServiceStore is null.");
         return _plugin.EnableAsync();
+    }
+
+    internal void SetServiceStore(ServiceStore serviceStore)
+    {
+        ServiceStore = serviceStore;
+        _eventHandlers.Clear();
+        _commands.Clear();
+        _commands.AddRange(serviceStore.GetServices<BeaconCommand>());        
+    }
+    
+    internal async ValueTask HandleEventAsync<TEvent>(TEvent e, CancellationToken cancelToken)
+        where TEvent : MinecraftEvent
+    {
+        if (IsDisposed) throw new ObjectDisposedException(GetType().FullName);
+        if (ServiceStore is null) throw new InvalidOperationException("Service store is not set.");
+
+        var tasks = ServiceStore
+            .GetServices<IMinecraftEventHandler<TEvent>>()
+            .Select(h => h.HandleAsync(e, cancelToken));
+
+        foreach (var task in tasks)
+            await task;
+  
     }
 }

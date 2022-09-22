@@ -3,6 +3,7 @@ using Beacon.Plugins;
 using Beacon.Server.Plugins.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
 namespace Beacon.Server.Plugins;
 internal class PluginManager : IMinecraftEventBus
@@ -10,15 +11,20 @@ internal class PluginManager : IMinecraftEventBus
 	private readonly ILogger<PluginManager> _logger;
 	private readonly List<IPluginLoader> _loaders;
 	private readonly ILoggerFactory _loggerFactory;
+	private readonly List<PluginContainer> _containers;
 	public PluginManager(ILogger<PluginManager> logger, IServiceProvider provider)
 	{
         _logger = logger;
 		_loaders = provider.GetServices<IPluginLoader>().ToList();
 		_loggerFactory = provider.GetRequiredService<ILoggerFactory>();
+		_containers = new();
 	}
     
 	public async Task LoadPlugins()
 	{
+        if (_containers.Any()) 
+			throw new InvalidOperationException("There are currently plugins loaded. Please unload those first.");
+		
 		var pluginSerivcesLookup = new Dictionary<PluginContainer, IServiceCollection>();
 		var publicServices = new ServiceCollection();
 
@@ -49,16 +55,23 @@ internal class PluginManager : IMinecraftEventBus
 		{
 			var localServices = pluginSerivcesLookup[container];
 			var store = new ServiceStore(localServices, publicProvider);
-			container.ServiceStore = store;
+			container.SetServiceStore(store);
 			await container.EnableAsync();
+            _containers.Add(container);
 			_logger.LogInformation("Enabled plugin {name}", container.PluginName);
         }  
 	}
 
-    public Task FireEventAsync<TEvent>(TEvent e, CancellationToken cancelToken = default) where TEvent : MinecraftEvent
+    public async Task FireEventAsync<TEvent>(TEvent e, CancellationToken cancelToken = default) where TEvent : MinecraftEvent
     {
-        _logger.LogInformation("Event: {event}", typeof(TEvent).Name);
-		return Task.CompletedTask;
+		var watch = Stopwatch.StartNew();
+
+		foreach (var task in _containers.Select(container => container.HandleEventAsync<TEvent>(e, cancelToken)))
+		{
+			await task;
+		}
+		watch.Stop();
+		_logger.LogInformation("Event {event} took {time}ms", typeof(TEvent).Name, watch.ElapsedMilliseconds);
     }
 
 }

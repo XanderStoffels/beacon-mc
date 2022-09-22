@@ -40,6 +40,7 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\..\beacon-mc-api\Beacon.API\Beacon.API.csproj" />
+	  <ProjectReference Include="..\Beacon.API\Beacon.API.csproj" />
 	</ItemGroup>
 
 

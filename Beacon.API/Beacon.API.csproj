@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Version>0.1.2</Version>
+    <Authors>Xander Stoffels</Authors>
+    <Description>A .NET 7 API to write server plugins for Beacon.</Description>
+    <PackageProjectUrl>https://github.com/XanderStoffels/beacon-mc-api</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/XanderStoffels/beacon-mc-api</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>minecraft minecraft-api api beacon beacon-api minecraft-server csharp net6</PackageTags>
+    <NeutralLanguage>en</NeutralLanguage>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <EnforceCodeStyleInBuild>False</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.0" />
+  </ItemGroup>
+
+  <!--<ItemGroup>
+    <None Update="beacon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>-->
+
+</Project>

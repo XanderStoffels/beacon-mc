@@ -16,7 +16,8 @@ public class MOTDPlugin : IBeaconPlugin
 
     public void ConfigureServices(IServiceRegistrator registrator)
     {
-        // 
+        registrator.RegisterEventHandler<ServerStatusRequestEvent, StatusPrinter>();
+        registrator.RegisterCommand<ClearCommand>();
     }
 
     public Task EnableAsync()
