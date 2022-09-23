@@ -1,10 +1,11 @@
 ﻿namespace Beacon.Server.Hosting;
+
 public class ServerOptions
 {
-    public string WorkingDirectory { get; set; }
+    public ServerOptions()
+    {
+        WorkingDirectory = Environment.CurrentDirectory;
+    }
 
-	public ServerOptions()
-	{
-		this.WorkingDirectory = Environment.CurrentDirectory;
-	}
+    public string WorkingDirectory { get; set; }
 }

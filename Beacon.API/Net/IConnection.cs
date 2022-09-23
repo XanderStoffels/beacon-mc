@@ -1,5 +1,4 @@
-﻿
-namespace Beacon.API.Net;
+﻿namespace Beacon.API.Net;
 
 public interface IConnection : IDisposable
 {

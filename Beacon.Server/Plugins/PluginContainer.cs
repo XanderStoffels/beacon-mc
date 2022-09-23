@@ -1,27 +1,20 @@
-﻿using Beacon.API.Commands;
+﻿using System.Reflection;
+using Beacon.API.Commands;
 using Beacon.API.Events;
 using Beacon.API.Events.Handling;
 using Beacon.API.Plugins;
 using Beacon.Server.Plugins.Services;
 using Microsoft.Extensions.DependencyInjection;
-using System.Reflection;
-using System.Threading;
 
 namespace Beacon.Server.Plugins;
 
 public sealed class PluginContainer : IAsyncDisposable
 {
-    private PluginLoadContext _loadContext;
-    private Assembly _assembly;    
-    private IBeaconPlugin _plugin;
-
-    internal ServiceStore? ServiceStore { get; private set; }
-    internal bool IsDisposed { get; private set; }
-    internal string PluginName => new(_plugin.Name.ToArray());
-    internal Version PluginVersion => (Version)_plugin.Version.Clone();
-
     private readonly List<BeaconCommand> _commands;
     private readonly Dictionary<Type, List<IMinecraftEventHandler<MinecraftEvent>>> _eventHandlers;
+    private Assembly _assembly;
+    private PluginLoadContext _loadContext;
+    private IBeaconPlugin _plugin;
 
 
     internal PluginContainer(PluginLoadContext loadContext, Assembly assembly, IBeaconPlugin plugin)
@@ -29,9 +22,14 @@ public sealed class PluginContainer : IAsyncDisposable
         _loadContext = loadContext;
         _assembly = assembly;
         _plugin = plugin;
-        _commands = new();
-        _eventHandlers = new();
+        _commands = new List<BeaconCommand>();
+        _eventHandlers = new Dictionary<Type, List<IMinecraftEventHandler<MinecraftEvent>>>();
     }
+
+    internal ServiceStore? ServiceStore { get; private set; }
+    internal bool IsDisposed { get; private set; }
+    internal string PluginName => new(_plugin.Name.ToArray());
+    internal Version PluginVersion => (Version)_plugin.Version.Clone();
 
     public async ValueTask DisposeAsync()
     {
@@ -66,9 +64,9 @@ public sealed class PluginContainer : IAsyncDisposable
         ServiceStore = serviceStore;
         _eventHandlers.Clear();
         _commands.Clear();
-        _commands.AddRange(serviceStore.GetServices<BeaconCommand>());        
+        _commands.AddRange(serviceStore.GetServices<BeaconCommand>());
     }
-    
+
     internal async ValueTask HandleEventAsync<TEvent>(TEvent e, CancellationToken cancelToken)
         where TEvent : MinecraftEvent
     {
@@ -81,6 +79,5 @@ public sealed class PluginContainer : IAsyncDisposable
 
         foreach (var task in tasks)
             await task;
-  
     }
 }

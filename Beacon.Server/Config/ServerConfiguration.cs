@@ -1,12 +1,11 @@
-﻿namespace Beacon.Server.Config
-{
-    internal class ServerConfiguration
-    {
-        public int Port { get; set; }
+﻿namespace Beacon.Server.Config;
 
-        public static ServerConfiguration Default => new()
-        {
-            Port = 25565
-        };
-    }
+internal class ServerConfiguration
+{
+    public int Port { get; set; }
+
+    public static ServerConfiguration Default => new()
+    {
+        Port = 25565
+    };
 }

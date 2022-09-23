@@ -1,7 +1,6 @@
-﻿namespace Beacon.Server.Net
+﻿namespace Beacon.Server.Net;
+
+internal interface IConnectionState
 {
-    internal interface IConnectionState
-    {
-        public ValueTask HandlePacketAsync(int packetId, Stream packetData, CancellationToken cToken = default);
-    }
+    public ValueTask HandlePacketAsync(int packetId, Stream packetData, CancellationToken cToken = default);
 }

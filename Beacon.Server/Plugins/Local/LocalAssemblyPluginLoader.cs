@@ -1,23 +1,24 @@
-﻿using Beacon.API.Plugins;
+﻿using System.Reflection;
+using Beacon.API.Plugins;
 using Beacon.Plugins;
 using Microsoft.Extensions.Logging;
-using System.Reflection;
 
 namespace Beacon.Server.Plugins.Local;
 
 public class LocalAssemblyPluginLoader : IPluginLoader
 {
     private readonly ILogger<LocalAssemblyPluginLoader> _logger;
-    private readonly DirectoryInfo _pluginFolder;
-    private readonly Version _minVersion;
     private readonly Version _maxVersion;
+    private readonly Version _minVersion;
+    private readonly DirectoryInfo _pluginFolder;
 
 
     public LocalAssemblyPluginLoader(ILogger<LocalAssemblyPluginLoader> logger)
     {
         _logger = logger;
-        _pluginFolder = new("plugins");
-        _minVersion = AssemblyName.GetAssemblyName(typeof(IBeaconPlugin).Assembly.Location).Version ?? throw new ArgumentException("API Verison could not be determined");
+        _pluginFolder = new DirectoryInfo("plugins");
+        _minVersion = AssemblyName.GetAssemblyName(typeof(IBeaconPlugin).Assembly.Location).Version ??
+                      throw new ArgumentException("API Verison could not be determined");
         _maxVersion = _minVersion;
     }
 
@@ -35,7 +36,8 @@ public class LocalAssemblyPluginLoader : IPluginLoader
             // No warning log needed here, problems are logged in CreateContextFromFile.
             if (context == null) continue;
             loadedPlugins.Add(context);
-            _logger.LogInformation("Discovered plugin {pluginname} v{version}", context.PluginName, context.PluginVersion.ToString());
+            _logger.LogInformation("Discovered plugin {pluginname} v{version}", context.PluginName,
+                context.PluginVersion.ToString());
         }
 
         return Task.FromResult(loadedPlugins);
@@ -61,8 +63,11 @@ public class LocalAssemblyPluginLoader : IPluginLoader
         var versionMatch = apiUsedByPlugin.Version == _minVersion;
         if (!versionMatch)
         {
-            _logger.LogWarning("Assembly {filename} does not use the correct Beacon API version and may crash at any moment!", file.Name);
-            _logger.LogWarning("Above assembly uses API version {pversion}, but should use {min}", apiUsedByPlugin.Version, _minVersion);
+            _logger.LogWarning(
+                "Assembly {filename} does not use the correct Beacon API version and may crash at any moment!",
+                file.Name);
+            _logger.LogWarning("Above assembly uses API version {pversion}, but should use {min}",
+                apiUsedByPlugin.Version, _minVersion);
         }
 
         // Try to compare types. Will crash if plugin uses an api version that is too old.
@@ -74,7 +79,9 @@ public class LocalAssemblyPluginLoader : IPluginLoader
         }
         catch (ReflectionTypeLoadException) when (!versionMatch)
         {
-            _logger.LogError("Type missmatch while scanning assembly {assembly} for plugin! Probably because it uses a wrong Beacon API verison", file.Name);
+            _logger.LogError(
+                "Type missmatch while scanning assembly {assembly} for plugin! Probably because it uses a wrong Beacon API verison",
+                file.Name);
             return null;
         }
 
@@ -105,6 +112,4 @@ public class LocalAssemblyPluginLoader : IPluginLoader
             return null;
         }
     }
-
-
 }

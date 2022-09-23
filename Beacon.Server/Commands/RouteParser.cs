@@ -3,7 +3,7 @@
 namespace Beacon.Server.Commands;
 
 /// <summary>
-/// A parser that can extract variable values from a string template and instance.
+///     A parser that can extract variable values from a string template and instance.
 /// </summary>
 /// <remarks>Credits to wcharczuk: https://gist.github.com/wcharczuk/2284226</remarks>
 internal static class RouteParser
@@ -17,17 +17,17 @@ internal static class RouteParser
     {
         var variableList = new List<string>();
         var matchCollection = Regex.Matches
-            (
-                routeTemplate
-                , string.Format(_routePattern, _variableStartChar, _variableEndChar)
-                , RegexOptions.IgnoreCase
-            );
+        (
+            routeTemplate
+            , string.Format(_routePattern, _variableStartChar, _variableEndChar)
+            , RegexOptions.IgnoreCase
+        );
 
-        foreach (var match in matchCollection) 
+        foreach (var match in matchCollection)
             if (match.ToString() is string m)
                 variableList.Add(RemoteVariableChars(m));
-       
-        return new(variableList);
+
+        return new HashSet<string>(variableList);
     }
 
     public static Dictionary<string, string> Parse(string routeTemplate, string routeInstance)
@@ -36,8 +36,9 @@ internal static class RouteParser
         var variables = ParseVariableNames(routeTemplate);
 
         foreach (var variable in variables)
-            routeTemplate = routeTemplate.Replace(WrapWithVariableChars(variable), string.Format(_tokenPattern, variable));
-        
+            routeTemplate =
+                routeTemplate.Replace(WrapWithVariableChars(variable), string.Format(_tokenPattern, variable));
+
         var regex = new Regex(routeTemplate, RegexOptions.IgnoreCase);
         var matchCollection = regex.Match(routeInstance);
 
@@ -56,11 +57,13 @@ internal static class RouteParser
             return input;
 
         var result = new string(input.ToArray());
-        result = result.Replace(_variableStartChar.ToString(), string.Empty).Replace(_variableEndChar.ToString(), string.Empty);
+        result = result.Replace(_variableStartChar.ToString(), string.Empty)
+            .Replace(_variableEndChar.ToString(), string.Empty);
         return result;
     }
 
-    private static string WrapWithVariableChars(string input) 
-        => string.Format("{0}{1}{2}", _variableStartChar, input, _variableEndChar);
-
+    private static string WrapWithVariableChars(string input)
+    {
+        return string.Format("{0}{1}{2}", _variableStartChar, input, _variableEndChar);
+    }
 }

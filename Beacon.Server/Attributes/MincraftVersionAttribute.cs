@@ -1,12 +1,12 @@
-﻿namespace Beacon.Server.Attributes
+﻿namespace Beacon.Server.Attributes;
+
+[AttributeUsage(AttributeTargets.Assembly)]
+internal class MincraftVersionAttribute : Attribute
 {
-    [AttributeUsage(AttributeTargets.Assembly, Inherited = false, AllowMultiple = false)]
-    internal class MincraftVersionAttribute : Attribute
+    public MincraftVersionAttribute(string mcVersion)
     {
-        public Version MinecraftVersion { get; }
-        public MincraftVersionAttribute(string mcVersion)
-        {
-            MinecraftVersion = Version.Parse(mcVersion.Replace("\"", ""));
-        }
+        MinecraftVersion = Version.Parse(mcVersion.Replace("\"", ""));
     }
+
+    public Version MinecraftVersion { get; }
 }

@@ -20,5 +20,4 @@ public static class DependencyInjection
         services.AddSingleton<BeaconCommand, TCommand>();
         return services;
     }
-
 }

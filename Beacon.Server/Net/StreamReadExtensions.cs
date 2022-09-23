@@ -31,7 +31,7 @@ public static class StreamReadExtensions
         var value = Encoding.UTF8.GetString(buffer);
         if (maxLength > 0 && value.Length > maxLength)
             throw new IOException($"string ({value.Length}) exceeded maximum length ({maxLength})");
-        
+
         return value;
     }
 
@@ -51,20 +51,17 @@ public static class StreamReadExtensions
 
     public static (int value, int bytesRead) ReadVarInt(this Stream stream)
     {
-        int numRead = 0;
-        int result = 0;
+        var numRead = 0;
+        var result = 0;
         byte read;
         do
         {
             read = stream.ReadUnsignedByte();
-            int value = read & 0b01111111;
+            var value = read & 0b01111111;
             result |= value << (7 * numRead);
 
             numRead++;
-            if (numRead > 5)
-            {
-                throw new InvalidOperationException("VarInt is too big");
-            }
+            if (numRead > 5) throw new InvalidOperationException("VarInt is too big");
         } while ((read & 0b10000000) != 0);
 
         return (result, numRead);
@@ -72,20 +69,17 @@ public static class StreamReadExtensions
 
     public static async ValueTask<(int value, int bytesRead)> ReadVarIntAsync(this Stream stream)
     {
-        int numRead = 0;
-        int result = 0;
+        var numRead = 0;
+        var result = 0;
         byte read;
         do
         {
             read = await stream.ReadUnsignedByteAsync();
-            int value = read & 0b01111111;
+            var value = read & 0b01111111;
             result |= value << (7 * numRead);
 
             numRead++;
-            if (numRead > 5)
-            {
-                throw new InvalidOperationException("VarInt is too big");
-            }
+            if (numRead > 5) throw new InvalidOperationException("VarInt is too big");
         } while ((read & 0b10000000) != 0);
 
         return (result, numRead);
@@ -93,45 +87,38 @@ public static class StreamReadExtensions
 
     public static (long value, int bytesRead) ReadVarLong(this Stream stream)
     {
-        int numRead = 0;
+        var numRead = 0;
         long result = 0;
         byte read;
         do
         {
             read = stream.ReadUnsignedByte();
-            int value = (read & 0b01111111);
+            var value = read & 0b01111111;
             result |= (long)value << (7 * numRead);
 
             numRead++;
-            if (numRead > 10)
-            {
-                throw new InvalidOperationException("VarLong is too big");
-            }
+            if (numRead > 10) throw new InvalidOperationException("VarLong is too big");
         } while ((read & 0b10000000) != 0);
 
         return (result, numRead);
     }
 
-    public static async ValueTask<(long value, int bytesRead)> ReadVarLongAsync(this Stream stream, CancellationToken cToken = default)
+    public static async ValueTask<(long value, int bytesRead)> ReadVarLongAsync(this Stream stream,
+        CancellationToken cToken = default)
     {
-        int numRead = 0;
+        var numRead = 0;
         long result = 0;
         byte read;
         do
         {
             read = await stream.ReadUnsignedByteAsync();
-            int value = (read & 0b01111111);
+            var value = read & 0b01111111;
             result |= (long)value << (7 * numRead);
 
             numRead++;
-            if (numRead > 10)
-            {
-                throw new InvalidOperationException("VarLong is too big");
-            }
+            if (numRead > 10) throw new InvalidOperationException("VarLong is too big");
         } while ((read & 0b10000000) != 0);
 
         return (result, numRead);
     }
-
-
 }

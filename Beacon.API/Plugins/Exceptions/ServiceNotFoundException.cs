@@ -6,5 +6,4 @@ public class ServiceNotFoundException : Exception
         : base($"Service {serviceName} could not be found.")
     {
     }
-    
 }

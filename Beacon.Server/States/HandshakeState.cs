@@ -5,6 +5,7 @@ namespace Beacon.Server.States;
 internal class HandshakeState : IConnectionState
 {
     private readonly IBeaconConnection _connection;
+
     public HandshakeState(IBeaconConnection connection)
     {
         _connection = connection;
@@ -30,13 +31,6 @@ internal class HandshakeState : IConnectionState
         }
         else if (nextState == 2)
         {
-
         }
-        else
-        {
-
-        }
-
-        return;
     }
 }

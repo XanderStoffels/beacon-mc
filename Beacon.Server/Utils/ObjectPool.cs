@@ -12,7 +12,15 @@ internal abstract class ObjectPool<T> where T : new()
     private sealed class SharedPool<TObject> : ObjectPool<TObject> where TObject : new()
     {
         private readonly ConcurrentStack<TObject> _stack = new();
-        public override TObject Get() => _stack.TryPop(out var obj) ? obj : new TObject();
-        public override void Return(TObject u) => _stack.Push(u);
+
+        public override TObject Get()
+        {
+            return _stack.TryPop(out var obj) ? obj : new TObject();
+        }
+
+        public override void Return(TObject u)
+        {
+            _stack.Push(u);
+        }
     }
 }

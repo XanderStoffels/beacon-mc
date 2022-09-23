@@ -15,7 +15,10 @@ internal class BeaconPlayer : IPlayer
         throw new NotImplementedException();
     }
 
-    public Task SendMessageAsync(string message) => throw new NotImplementedException();
+    public Task SendMessageAsync(string message)
+    {
+        throw new NotImplementedException();
+    }
 
     public ValueTask TeleportTo(Location location)
     {

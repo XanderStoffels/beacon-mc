@@ -1,27 +1,56 @@
-﻿using Beacon.API.Commands;
+﻿using System.Text;
+using System.Text.RegularExpressions;
+using Beacon.API.Commands;
 using Beacon.Server.CLI;
 using Microsoft.Extensions.Logging;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace Beacon.Server.Commands;
 
 internal class CommandHandler : ICommandHandler
 {
-    private readonly ILogger _logger;
-    private readonly Dictionary<string, BeaconCommand> _commandLookup;
     private readonly AutoCompleteNode _autoComplete;
-    public CommandHandler(ILogger logger) : this(logger, new())
+    private readonly Dictionary<string, BeaconCommand> _commandLookup;
+    private readonly ILogger _logger;
+
+    public CommandHandler(ILogger logger) : this(logger, new List<BeaconCommand>())
     {
     }
 
     public CommandHandler(ILogger logger, List<BeaconCommand> commands)
     {
         _logger = logger;
-        _commandLookup = new(commands.Count);
+        _commandLookup = new Dictionary<string, BeaconCommand>(commands.Count);
         RegisterBaseCommands();
         RegisterCommands(commands);
         _autoComplete = BuildAutocompletionTree();
+    }
+
+    public ValueTask<bool> HandleAsync(ICommandSender sender, string command, CancellationToken cToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+            return ValueTask.FromResult(false);
+
+        var parts = new Queue<string>(command.Split(' '));
+        var bob = new StringBuilder();
+
+        for (var i = 0; i < parts.Count; i++)
+        {
+            if (i != 0)
+                bob.Append(' ');
+            bob.Append(parts.Dequeue());
+
+            if (!_commandLookup.TryGetValue(bob.ToString(), out var cmd))
+                continue;
+
+            return cmd.ExecuteAsync(sender, parts.ToArray(), cToken);
+        }
+
+        return ValueTask.FromResult(false);
+    }
+
+    public AutoCompleteNode GetAutoCompleteTree()
+    {
+        return _autoComplete;
     }
 
 
@@ -41,8 +70,8 @@ internal class CommandHandler : ICommandHandler
         var root = new AutoCompleteNode();
         foreach (var kv in _commandLookup)
             root.Options.Add(kv.Key, BuildAutocompletionTree(kv.Value));
-        
-        return root; 
+
+        return root;
     }
 
     private AutoCompleteNode BuildAutocompletionTree(BeaconCommand cmd)
@@ -57,8 +86,10 @@ internal class CommandHandler : ICommandHandler
             if (innerCmd != null)
                 root.Options.Add(sub, BuildAutocompletionTree(innerCmd));
         }
+
         return root;
     }
+
     private void RegisterCommands(List<BeaconCommand> commands)
     {
         foreach (var cmd in commands)
@@ -66,37 +97,15 @@ internal class CommandHandler : ICommandHandler
             if (cmd.Keyword.Length < 1 || !Regex.IsMatch(cmd.Keyword, "^[a-z]+$"))
             {
                 _logger.LogWarning("The command name '{name}' is not valid and will not be loaded", cmd.Keyword);
-                _logger.LogWarning("Command names should have no whitespace and contain at least 1 lower case letter", cmd.Keyword);
+                _logger.LogWarning("Command names should have no whitespace and contain at least 1 lower case letter",
+                    cmd.Keyword);
                 continue;
             }
+
             if (_commandLookup.TryAdd(cmd.Keyword, cmd))
                 continue;
 
             _logger.LogWarning("Command '{cmd}' was already registered. Skipping this one", cmd.Keyword);
         }
     }
-    public ValueTask<bool> HandleAsync(ICommandSender sender, string command, CancellationToken cToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(command))
-            return ValueTask.FromResult(false);
-
-        var parts = new Queue<string>(command.Split(' '));
-        var bob = new StringBuilder();
-
-        for (var i = 0; i < parts.Count; i++)
-        {
-            if (i != 0) 
-                bob.Append(' ');
-            bob.Append(parts.Dequeue());
-
-            if (!_commandLookup.TryGetValue(bob.ToString(), out var cmd))
-                continue;
-
-            return cmd.ExecuteAsync(sender, parts.ToArray(), cToken);
-        }
-
-        return ValueTask.FromResult(false);
-
-    }
-    public AutoCompleteNode GetAutoCompleteTree() => _autoComplete;
 }

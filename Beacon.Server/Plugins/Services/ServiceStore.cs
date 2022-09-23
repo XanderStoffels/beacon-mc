@@ -3,6 +3,7 @@ using Beacon.API.Plugins.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beacon.Server.Plugins.Services;
+
 internal class ServiceStore : IServiceStore
 {
     private readonly IServiceProvider _privateServices;
@@ -16,7 +17,7 @@ internal class ServiceStore : IServiceStore
 
     public TService? Get<TService>()
     {
-       return _privateServices.GetService<TService>();
+        return _privateServices.GetService<TService>();
     }
 
     public TService? GetPublic<TService>()
@@ -38,6 +39,6 @@ internal class ServiceStore : IServiceStore
 
     internal IEnumerable<TService> GetServices<TService>()
     {
-        return _privateServices.GetServices<TService>().ToList();  
+        return _privateServices.GetServices<TService>().ToList();
     }
 }

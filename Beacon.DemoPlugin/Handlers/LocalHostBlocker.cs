@@ -1,6 +1,5 @@
 ﻿using Beacon.API.Events;
 using Beacon.API.Events.Handling;
-using Microsoft.Extensions.Logging;
 
 namespace Beacon.DemoPlugin.Handlers;
 

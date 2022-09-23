@@ -1,8 +1,7 @@
-﻿namespace Beacon.API.Commands
+﻿namespace Beacon.API.Commands;
+
+public interface ICommandSender
 {
-    public interface ICommandSender
-    {
-        public IServer Server { get; }
-        public Task SendMessageAsync(string message);
-    }
+    public IServer Server { get; }
+    public Task SendMessageAsync(string message);
 }

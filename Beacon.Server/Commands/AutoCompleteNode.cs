@@ -2,15 +2,15 @@
 
 internal class AutoCompleteNode
 {
-    public Dictionary<string, AutoCompleteNode> Options { get; protected set; }
-
     public AutoCompleteNode()
     {
-        Options = new();
+        Options = new Dictionary<string, AutoCompleteNode>();
     }
 
+    public Dictionary<string, AutoCompleteNode> Options { get; protected set; }
+
     /// <summary>
-    /// Check if the given input has any autocomplete options.
+    ///     Check if the given input has any autocomplete options.
     /// </summary>
     /// <param name="input">The string you want to autocomplete.</param>
     /// <param name="hint">The rest of the given input string which can be used for autocompletion.</param>

@@ -4,15 +4,11 @@ namespace Beacon.Server.CLI;
 
 internal class ConsoleHandler
 {
-    private readonly AutoCompleteNode _root;
     private const string _inputRegex = ".*";
-    private LinkedList<string> _history;
     private const int MaxHistory = 25;
+    private readonly AutoCompleteNode _root;
+    private readonly LinkedList<string> _history;
 
-    public event EventHandler<string> EnteredCommand;
-
-    public ConsoleColor HintColor { get; set; }
-    public ConsoleColor OkColor { get; set; }
     public ConsoleHandler(AutoCompleteNode root)
     {
         _root = root;
@@ -20,6 +16,11 @@ internal class ConsoleHandler
         HintColor = ConsoleColor.DarkGray;
         OkColor = ConsoleColor.Gray;
     }
+
+    public ConsoleColor HintColor { get; set; }
+    public ConsoleColor OkColor { get; set; }
+
+    public event EventHandler<string> EnteredCommand;
 
     public Task Handle(CancellationToken ctoken)
     {
@@ -29,7 +30,7 @@ internal class ConsoleHandler
             if (!string.IsNullOrWhiteSpace(cmd))
                 EnteredCommand?.Invoke(this, cmd);
         }
-            
+
         return Task.CompletedTask;
     }
 
@@ -56,7 +57,7 @@ internal class ConsoleHandler
                 case ConsoleKey.Tab:
                     if (suggestion is null)
                         continue;
-                    
+
                     userInput = userInput + suggestion ?? userInput;
                     cursorPos = userInput.Length;
                     break;
@@ -67,6 +68,7 @@ internal class ConsoleHandler
                         userInput = _history.ElementAt(searchIndex++);
                         cursorPos = userInput.Length;
                     }
+
                     break;
 
                 case ConsoleKey.DownArrow:
@@ -87,14 +89,14 @@ internal class ConsoleHandler
                 default:
                     if (Regex.IsMatch(input.KeyChar.ToString(), _inputRegex))
                         userInput = userInput.Insert(cursorPos++, input.KeyChar.ToString());
-                    
+
                     break;
             }
 
             var correctInput = _root.Hint(userInput, out suggestion);
             readLine = suggestion == null ? userInput : userInput + suggestion;
 
-            ClearCurrentConsoleLine();      
+            ClearCurrentConsoleLine();
 
             var originalColor = Console.ForegroundColor;
             if (correctInput)
@@ -120,13 +122,15 @@ internal class ConsoleHandler
 
         return userInput.Any() ? readLine : string.Empty;
     }
+
     private void AddToHistory(string readLine)
     {
-        if (_history.Count >= MaxHistory)       
+        if (_history.Count >= MaxHistory)
             _history.RemoveLast();
-        
+
         _history.AddFirst(readLine);
     }
+
     private static void ClearCurrentConsoleLine()
     {
         var currentLineCursor = Console.CursorTop;

@@ -2,12 +2,13 @@
 
 internal class AutoCompleteLeafNode : AutoCompleteNode
 {
-    public bool AcceptsArgs { get; }
-    public AutoCompleteLeafNode(bool acceptArgs = false, params string[] options) 
+    public AutoCompleteLeafNode(bool acceptArgs = false, params string[] options)
     {
         Options = options.ToDictionary(o => o, o => new AutoCompleteNode());
         AcceptsArgs = acceptArgs;
     }
+
+    public bool AcceptsArgs { get; }
 
     public override bool Hint(string input, out string? hint)
     {
@@ -34,8 +35,7 @@ internal class AutoCompleteLeafNode : AutoCompleteNode
             hint = Options.Keys.FirstOrDefault();
             return false;
         }
+
         return Hint(input, out hint);
     }
-
-
 }

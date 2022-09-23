@@ -2,8 +2,9 @@
 
 public abstract class CancelableMinecraftEvent : MinecraftEvent, ICancelable
 {
-    public bool IsCancelled { get; set; }
     protected CancelableMinecraftEvent(IServer server) : base(server)
     {
     }
+
+    public bool IsCancelled { get; set; }
 }

@@ -1,17 +1,12 @@
-﻿using Beacon.API;
+﻿using System.Net.Sockets;
+using Beacon.API;
 using Beacon.Server.States;
 using Beacon.Server.Utils;
-using System.Net.Sockets;
 
 namespace Beacon.Server.Net;
 
 internal class BeaconConnection : IBeaconConnection
 {
-    public TcpClient Tcp { get; }
-    public IServer Server { get; }
-    public string RemoteAddress { get; }
-    public bool IsListening { get; private set; }
-
     private IConnectionState _state;
 
     public BeaconConnection(IServer server, TcpClient tcp)
@@ -22,6 +17,11 @@ internal class BeaconConnection : IBeaconConnection
         RemoteAddress = Tcp.Client.RemoteEndPoint?.ToString() ?? "";
         _state = new HandshakeState(this);
     }
+
+    public TcpClient Tcp { get; }
+    public bool IsListening { get; private set; }
+    public IServer Server { get; }
+    public string RemoteAddress { get; }
 
     public async Task AcceptPacketsAsync(CancellationToken cancelToken)
     {
@@ -40,21 +40,19 @@ internal class BeaconConnection : IBeaconConnection
             try
             {
                 dataStream = await ReadPacketAsync(cancelToken);
-                if (dataStream == null)
-                {
-                    return;
-                }
+                if (dataStream == null) return;
                 (packetId, _) = await dataStream.ReadVarIntAsync();
             }
             catch (Exception)
             {
                 return;
             }
+
             // Packet is received, now handle it.
             try
             {
                 if (_state is null) throw new InvalidOperationException("The connection has no state!");
-                await this._state.HandlePacketAsync(packetId, dataStream, cancelToken);
+                await _state.HandlePacketAsync(packetId, dataStream, cancelToken);
             }
             catch (Exception)
             {
@@ -70,21 +68,23 @@ internal class BeaconConnection : IBeaconConnection
 
     public void Dispose()
     {
-        this.Tcp.Dispose();
-        this.IsListening = false;
+        Tcp.Dispose();
+        IsListening = false;
     }
 
-    public void ChangeState(IConnectionState state) => _state = state;
+    public void ChangeState(IConnectionState state)
+    {
+        _state = state;
+    }
+
     private async ValueTask<MemoryStream?> ReadPacketAsync(CancellationToken cancelToken)
     {
         if (Tcp is null) return null;
         var stream = Tcp.GetStream();
         var (packetLength, _) = await stream.ReadVarIntAsync();
         if (packetLength == 0)
-        {
             // Client disconencted?
             return null;
-        }
         var bytes = new byte[packetLength];
 
         await stream.ReadAsync(bytes.AsMemory(0, packetLength), cancelToken);
@@ -95,5 +95,4 @@ internal class BeaconConnection : IBeaconConnection
 
         return memory;
     }
-
 }

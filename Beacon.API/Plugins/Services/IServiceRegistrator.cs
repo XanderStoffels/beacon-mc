@@ -5,7 +5,7 @@ using Beacon.API.Events.Handling;
 namespace Beacon.API.Plugins.Services;
 
 /// <summary>
-/// A service that can be used to register public or private services.
+///     A service that can be used to register public or private services.
 /// </summary>
 public interface IServiceRegistrator
 {
@@ -14,8 +14,8 @@ public interface IServiceRegistrator
         where TImplementation : class, TService;
 
     public IServiceRegistrator RegisterPublic<TService, TImplementation>()
-    where TService : class
-    where TImplementation : class, TService;
+        where TService : class
+        where TImplementation : class, TService;
 
     // Regsiter a command.
     public IServiceRegistrator RegisterCommand<TCommand>()
@@ -25,5 +25,4 @@ public interface IServiceRegistrator
     public IServiceRegistrator RegisterEventHandler<TEvent, TEventHandler>()
         where TEvent : MinecraftEvent
         where TEventHandler : class, IMinecraftEventHandler<TEvent>;
-    
 }
