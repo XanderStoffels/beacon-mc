@@ -6,8 +6,8 @@ internal class ConsoleHandler
 {
     private const string _inputRegex = ".*";
     private const int MaxHistory = 25;
-    private readonly AutoCompleteNode _root;
     private readonly LinkedList<string> _history;
+    private readonly AutoCompleteNode _root;
 
     public ConsoleHandler(AutoCompleteNode root)
     {

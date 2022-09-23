@@ -3,27 +3,26 @@ using Beacon.Plugins;
 using Beacon.Server.Plugins;
 using Beacon.Server.Plugins.Local;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Beacon.Server.Hosting;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddBeacon(this IServiceCollection services)
+    public static IHostBuilder UseBeacon(this IHostBuilder builder, Action<BeaconHostingOptions> optionsAction)
     {
-        return AddBeacon(services, _ => { });
-    }
+        var options = new BeaconHostingOptions();
+        optionsAction(options);
 
-    public static IServiceCollection AddBeacon(this IServiceCollection services, Action<ServerOptions> configureOptions)
-    {
-        var options = new ServerOptions();
-        configureOptions(options);
-
-        services.AddSingleton(options);
-        services.AddSingleton<LocalAssemblyPluginLoader>();
-        services.AddSingleton<IPluginLoader, LocalAssemblyPluginLoader>();
-        services.AddSingleton<PluginManager>();
-        services.AddSingleton<IMinecraftEventBus>(p => p.GetRequiredService<PluginManager>());
-        services.AddHostedService<BeaconServer>();
-        return services;
+        builder.ConfigureServices(services =>
+        {
+            services.AddSingleton(options.ServerOptions);
+            services.AddSingleton<LocalAssemblyPluginLoader>();
+            services.AddSingleton<IPluginLoader, LocalAssemblyPluginLoader>();
+            services.AddSingleton<PluginManager>();
+            services.AddSingleton<IMinecraftEventBus>(p => p.GetRequiredService<PluginManager>());
+            services.AddHostedService<BeaconServer>();
+        });
+        return builder;
     }
 }

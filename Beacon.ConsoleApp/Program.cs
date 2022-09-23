@@ -18,14 +18,11 @@ Log.Logger = new LoggerConfiguration()
     .CreateBootstrapLogger();
 
 var host = Host.CreateDefaultBuilder()
-    .ConfigureServices(services =>
-    {
-        services.AddBeacon(options =>
-        {
-            options.WorkingDirectory = args.FirstOrDefault() ?? Environment.CurrentDirectory;
-        });
-    })
     .UseSerilog()
-    .ConfigureLogging(options => { options.AddFilter("Microsoft", LogLevel.Critical); });
+    .ConfigureLogging(options => { options.AddFilter("Microsoft", LogLevel.Critical); })
+    .UseBeacon(options =>
+    {
+        options.ServerOptions.WorkingDirectory = args.FirstOrDefault() ?? Environment.CurrentDirectory;
+    });
 
 await host.RunConsoleAsync();

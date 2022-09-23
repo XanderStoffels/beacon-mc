@@ -25,11 +25,16 @@ internal class PluginManager : IMinecraftEventBus
     public async Task FireEventAsync<TEvent>(TEvent e, CancellationToken cancelToken = default)
         where TEvent : MinecraftEvent
     {
+#if DEBUG
         var watch = Stopwatch.StartNew();
-
-        foreach (var task in _containers.Select(container => container.HandleEventAsync(e, cancelToken))) await task;
+#endif
+        _logger.LogDebug("Handling event {Event}", typeof(TEvent).Name);
+        foreach (var task in _containers.Select(container => container.HandleEventAsync(e, cancelToken)))
+            await task;
+#if DEBUG
         watch.Stop();
-        _logger.LogInformation("Event {event} took {time}ms", typeof(TEvent).Name, watch.ElapsedMilliseconds);
+        _logger.LogDebug("Handled event {Event} in {Mils}ms", typeof(TEvent).Name, watch.ElapsedMilliseconds);
+#endif
     }
 
     public async Task LoadPlugins()
@@ -37,12 +42,12 @@ internal class PluginManager : IMinecraftEventBus
         if (_containers.Any())
             throw new InvalidOperationException("There are currently plugins loaded. Please unload those first.");
 
-        var pluginSerivcesLookup = new Dictionary<PluginContainer, IServiceCollection>();
+        var pluginServicesLookup = new Dictionary<PluginContainer, IServiceCollection>();
         var publicServices = new ServiceCollection();
 
         if (_loaders.Count == 0)
         {
-            _logger.LogWarning("No plugin loaders found. Plugins will not be loaded.");
+            _logger.LogWarning("No plugin loaders found. Plugins will not be loaded");
             return;
         }
 
@@ -53,9 +58,9 @@ internal class PluginManager : IMinecraftEventBus
             foreach (var container in containers)
             {
                 var localServices = new ServiceCollection()
-                    .AddSingleton(f => _loggerFactory.CreateLogger(container.PluginName));
+                    .AddSingleton(_ => _loggerFactory.CreateLogger(container.PluginName));
 
-                pluginSerivcesLookup[container] = localServices;
+                pluginServicesLookup[container] = localServices;
                 container.ConfigureServices(publicServices, localServices);
             }
         }
@@ -63,14 +68,14 @@ internal class PluginManager : IMinecraftEventBus
         // After all public services have been added to the same collection, create a service store for each plugin container.
         // Share the same instances of public services for each plugin.
         var publicProvider = publicServices.BuildServiceProvider();
-        foreach (var container in pluginSerivcesLookup.Keys)
+        foreach (var container in pluginServicesLookup.Keys)
         {
-            var localServices = pluginSerivcesLookup[container];
+            var localServices = pluginServicesLookup[container];
             var store = new ServiceStore(localServices, publicProvider);
             container.SetServiceStore(store);
             await container.EnableAsync();
             _containers.Add(container);
-            _logger.LogInformation("Enabled plugin {name}", container.PluginName);
+            _logger.LogInformation("Enabled plugin {Name}", container.PluginName);
         }
     }
 }
