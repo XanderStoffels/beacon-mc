@@ -1,6 +1,6 @@
 ﻿namespace Beacon.Server.Exceptions;
 
-internal class PluginLoadException : Exception
+public class PluginLoadException : Exception
 {
     public PluginLoadException(string? message) : base(message)
     {

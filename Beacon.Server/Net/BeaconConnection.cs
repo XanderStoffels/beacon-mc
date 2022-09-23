@@ -43,8 +43,9 @@ internal class BeaconConnection : IBeaconConnection
                 if (dataStream == null) return;
                 (packetId, _) = await dataStream.ReadVarIntAsync();
             }
-            catch (Exception)
+            catch (IOException)
             {
+                Dispose();
                 return;
             }
 
@@ -79,15 +80,14 @@ internal class BeaconConnection : IBeaconConnection
 
     private async ValueTask<MemoryStream?> ReadPacketAsync(CancellationToken cancelToken)
     {
-        if (Tcp is null) return null;
         var stream = Tcp.GetStream();
         var (packetLength, _) = await stream.ReadVarIntAsync();
         if (packetLength == 0)
-            // Client disconencted?
+            // Client disconnected?
             return null;
         var bytes = new byte[packetLength];
 
-        await stream.ReadAsync(bytes.AsMemory(0, packetLength), cancelToken);
+        var _ = await stream.ReadAsync(bytes.AsMemory(0, packetLength), cancelToken);
 
         var memory = MemoryStreaming.Manager.GetStream("Connection");
         await memory.WriteAsync(bytes.AsMemory(0, packetLength), cancelToken);
