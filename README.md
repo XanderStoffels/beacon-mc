@@ -11,6 +11,23 @@ Currently, because the game is not playable at this stage, there are no builds a
 ## Contributors
 
 <!-- readme: contributors -start -->
+<table>
+<tr>
+    <td align="center">
+        <a href="https://github.com/XanderStoffels">
+            <img src="https://avatars.githubusercontent.com/u/15852653?v=4" width="100;" alt="XanderStoffels"/>
+            <br />
+            <sub><b>Xander Stoffels</b></sub>
+        </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/deepsourcebot">
+            <img src="https://avatars.githubusercontent.com/u/60907429?v=4" width="100;" alt="deepsourcebot"/>
+            <br />
+            <sub><b>DeepSource Bot</b></sub>
+        </a>
+    </td></tr>
+</table>
 <!-- readme: contributors -end -->
 
 ## Contributing
