@@ -14,15 +14,21 @@ Console.WriteLine(Resources.LOGO
 Console.WriteLine();
 
 Log.Logger = new LoggerConfiguration()
+#if DEBUG
     .WriteTo.Console()
+#else
+    .WriteTo.Console(LogEventLevel.Information)
+#endif
     .CreateBootstrapLogger();
 
 var host = Host.CreateDefaultBuilder()
+    //.ConfigureLogging(options => options.AddFilter("Microsoft", LogLevel.Critical))
+    .UseConsoleLifetime(options => options.SuppressStatusMessages = true)
     .UseSerilog()
-    .ConfigureLogging(options => { options.AddFilter("Microsoft", LogLevel.Critical); })
     .UseBeacon(options =>
     {
-        options.ServerOptions.WorkingDirectory = args.FirstOrDefault() ?? Environment.CurrentDirectory;
+        if (args.Length > 0)
+            options.WorkingDirectory = new DirectoryInfo(args[0]);
     });
 
 await host.RunConsoleAsync();

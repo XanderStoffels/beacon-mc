@@ -9,6 +9,9 @@ internal class ConsoleHandler
     private readonly LinkedList<string> _history;
     private readonly AutoCompleteNode _root;
 
+    public ConsoleColor HintColor { get; set; }
+    public ConsoleColor OkColor { get; set; }
+
     public ConsoleHandler(AutoCompleteNode root)
     {
         _root = root;
@@ -16,9 +19,6 @@ internal class ConsoleHandler
         HintColor = ConsoleColor.DarkGray;
         OkColor = ConsoleColor.Gray;
     }
-
-    public ConsoleColor HintColor { get; set; }
-    public ConsoleColor OkColor { get; set; }
 
     public event EventHandler<string> EnteredCommand;
 

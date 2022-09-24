@@ -1,11 +1,10 @@
-﻿namespace Beacon.Server.Config;
+﻿using Beacon.API.Util;
 
-internal class ServerConfiguration
+namespace Beacon.Server.Config;
+
+public class ServerConfiguration : IServerConfiguration
 {
-    public int Port { get; set; }
-
-    public static ServerConfiguration Default => new()
-    {
-        Port = 25565
-    };
+    public int Port { get; } = 25565;
+    public string MOTD { get; } = "A Beacon Server!";
+    public int MaxPlayers { get; } = 10;
 }

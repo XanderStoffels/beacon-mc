@@ -4,14 +4,14 @@ public abstract class BeaconCommand
 {
     private readonly Dictionary<string, BeaconCommand> _subcommands;
 
+    public abstract string Keyword { get; }
+    public abstract string Description { get; }
+    public string[] SubCommandKeywords => _subcommands.Keys.ToArray();
+
     protected BeaconCommand()
     {
         _subcommands = new Dictionary<string, BeaconCommand>();
     }
-
-    public abstract string Keyword { get; }
-    public abstract string Description { get; }
-    public string[] SubCommandKeywords => _subcommands.Keys.ToArray();
 
     public ValueTask<bool> ExecuteAsync(ICommandSender sender, string[] args, CancellationToken cToken = default)
     {

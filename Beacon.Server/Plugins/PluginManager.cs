@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Beacon.Server.Plugins;
 
-internal class PluginManager : IMinecraftEventBus
+public class PluginManager : IMinecraftEventBus
 {
     private readonly List<PluginContainer> _containers;
     private readonly List<IPluginLoader> _loaders;

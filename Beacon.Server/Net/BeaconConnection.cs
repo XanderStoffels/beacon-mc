@@ -9,6 +9,9 @@ internal class BeaconConnection : IBeaconConnection
 {
     private IConnectionState _state;
 
+    public TcpClient Tcp { get; }
+    public bool IsListening { get; private set; }
+
     public BeaconConnection(IServer server, TcpClient tcp)
     {
         Tcp = tcp;
@@ -18,8 +21,6 @@ internal class BeaconConnection : IBeaconConnection
         _state = new HandshakeState(this);
     }
 
-    public TcpClient Tcp { get; }
-    public bool IsListening { get; private set; }
     public IServer Server { get; }
     public string RemoteAddress { get; }
 
