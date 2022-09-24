@@ -1,4 +1,5 @@
 ﻿using Beacon.API.Events;
+using Beacon.API.Net;
 using Beacon.Server.Net;
 using Beacon.Server.Net.Packets;
 using Beacon.Server.Utils;
@@ -15,7 +16,7 @@ internal class StatusState : IConnectionState
     {
         _hasReceivedPacket = false;
         _connection = connection;
-        _eventBus = connection.Server.EventBus;
+        _eventBus = connection.Server.Events;
     }
 
     public async ValueTask HandlePacketAsync(int packetId, Stream packetData, CancellationToken cToken = default)
@@ -37,7 +38,7 @@ internal class StatusState : IConnectionState
     }
 
 
-    private static async ValueTask HandlePing(IBeaconConnection connection, Stream packetData, CancellationToken cToken)
+    private static async ValueTask HandlePing(IConnection connection, Stream packetData, CancellationToken cToken)
     {
         var pong = ObjectPool<ClientboundStatusPong>.Shared.Get();
         await pong.DeserializeAsync(packetData, cToken);
@@ -45,9 +46,9 @@ internal class StatusState : IConnectionState
         ObjectPool<ClientboundStatusPong>.Shared.Return(pong);
     }
 
-    private async ValueTask HandleStatusRequest(IBeaconConnection connection, CancellationToken cToken)
+    private async ValueTask HandleStatusRequest(IConnection connection, CancellationToken cToken)
     {
-        var status = await connection.Server.GetStatusAsync();
+        var status = connection.Server.GetStatus();
         var e = new ServerStatusRequestEvent(connection.Server, connection.RemoteAddress, status);
         await _eventBus.FireEventAsync(e, cToken);
 

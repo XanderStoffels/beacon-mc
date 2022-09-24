@@ -2,12 +2,12 @@
 
 internal class AutoCompleteNode
 {
+    public Dictionary<string, AutoCompleteNode> Options { get; protected set; }
+
     public AutoCompleteNode()
     {
         Options = new Dictionary<string, AutoCompleteNode>();
     }
-
-    public Dictionary<string, AutoCompleteNode> Options { get; protected set; }
 
     /// <summary>
     ///     Check if the given input has any autocomplete options.

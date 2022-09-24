@@ -8,14 +8,14 @@ namespace Beacon.Server.Plugins.Services;
 
 internal class PluginServiceRegistrator : IServiceRegistrator
 {
+    internal IServiceCollection LocalServiceCollection { get; }
+    internal IServiceCollection PublicServiceCollection { get; }
+
     public PluginServiceRegistrator(IServiceCollection local, IServiceCollection @public)
     {
         LocalServiceCollection = local;
         PublicServiceCollection = @public;
     }
-
-    internal IServiceCollection LocalServiceCollection { get; }
-    internal IServiceCollection PublicServiceCollection { get; }
 
     public IServiceRegistrator RegisterLocal<TService, TImplementation>()
         where TService : class

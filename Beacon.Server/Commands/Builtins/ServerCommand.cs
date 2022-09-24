@@ -7,14 +7,14 @@ internal class ServerCommand : BeaconCommand
 {
     private readonly IServer _server;
 
+    public override string Keyword => "server";
+    public override string Description => "Base command for server related stuff.";
+
     public ServerCommand(IServer server)
     {
         _server = server;
         AddSubCommand("version", HandleServerStop);
     }
-
-    public override string Keyword => "server";
-    public override string Description => "Base command for server related stuff.";
 
     private async ValueTask<bool> HandleServerStop(ICommandSender sender, string[] args,
         CancellationToken cToken = default)

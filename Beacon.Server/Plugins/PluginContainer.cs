@@ -16,6 +16,11 @@ public sealed class PluginContainer : IAsyncDisposable
     private PluginLoadContext _loadContext;
     private IBeaconPlugin _plugin;
 
+    internal ServiceStore? ServiceStore { get; private set; }
+    internal bool IsDisposed { get; private set; }
+    internal string PluginName => new(_plugin.Name.ToArray());
+    internal Version PluginVersion => (Version)_plugin.Version.Clone();
+
 
     internal PluginContainer(PluginLoadContext loadContext, Assembly assembly, IBeaconPlugin plugin)
     {
@@ -25,11 +30,6 @@ public sealed class PluginContainer : IAsyncDisposable
         _commands = new List<BeaconCommand>();
         _eventHandlers = new Dictionary<Type, List<IMinecraftEventHandler<MinecraftEvent>>>();
     }
-
-    internal ServiceStore? ServiceStore { get; private set; }
-    internal bool IsDisposed { get; private set; }
-    internal string PluginName => new(_plugin.Name.ToArray());
-    internal Version PluginVersion => (Version)_plugin.Version.Clone();
 
     public async ValueTask DisposeAsync()
     {
