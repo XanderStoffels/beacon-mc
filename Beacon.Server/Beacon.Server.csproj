@@ -7,11 +7,11 @@
         <Nullable>enable</Nullable>
 
         <Id>Beacon.Server</Id>
-        <Version>0.1.0-alpha</Version>
-        <MinecraftVersion>1.18.1</MinecraftVersion>
+        <Version>0.2</Version>
+        <MinecraftVersion>1.19.3</MinecraftVersion>
         <Authors>Xander Stoffels</Authors>
         <Title>Beacon Server</Title>
-        <Description>A Minecraft Server written in C# using .NET 6.</Description>
+        <Description>A Minecraft Server written in C# using .NET 7.</Description>
         <PackageLicenseExpression>GNU General Public License v2.0</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/XanderStoffels/beacon-mc</RepositoryUrl>
         <PackageIcon>beacon.png</PackageIcon>
@@ -30,24 +30,13 @@
 
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.0" />
-        <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="6.0.0" />
-        <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.0" />
-        <PackageReference Include="Serilog.Extensions.Hosting" Version="4.2.0" />
-        <PackageReference Include="Serilog.Sinks.Console" Version="4.0.1" />
+      <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
+      <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.1" />
     </ItemGroup>
 
 
     <ItemGroup>
-        <ProjectReference Include="..\..\beacon-mc-api\Beacon.API\Beacon.API.csproj" />
-        <ProjectReference Include="..\Beacon.API\Beacon.API.csproj" />
-    </ItemGroup>
-
-
-    <ItemGroup>
-        <Folder Include="Net\Packets\Handshake\" />
-        <Folder Include="Net\Packets\Play\" />
-        <Folder Include="Net\Packets\Status\" />
+      <ProjectReference Include="..\Beacon.API\Beacon.API.csproj" />
     </ItemGroup>
 
 </Project>
