@@ -1,3 +1,6 @@
 ﻿namespace Beacon.Server;
 
-public record ServerConfiguration(int Port);
+public class ServerConfiguration
+{
+    public required int Port { get; init; }
+}

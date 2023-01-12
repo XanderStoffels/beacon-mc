@@ -1,3 +1,13 @@
-﻿// See https://aka.ms/new-console-template for more information
+﻿
 
-Console.WriteLine("Hello, World!");
+
+using Beacon.Hosting;
+using Microsoft.Extensions.Hosting;
+
+await Host.CreateDefaultBuilder(args)
+    .ConfigureServices(services =>
+    {
+        services.AddBeaconServer<Startup>();
+    })
+    .Build()
+    .RunAsync();

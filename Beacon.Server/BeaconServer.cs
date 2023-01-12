@@ -29,9 +29,9 @@ public class BeaconServer : IServer
         
         // Propagate the external cancellation to the server's cancellation token source.
         cancelToken.Register(cancelSource.Cancel);
+        
+        
         return Task.CompletedTask;
-        
-        
     }
 
     public void WaitForCompletion()
