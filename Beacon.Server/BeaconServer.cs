@@ -7,14 +7,14 @@ namespace Beacon.Server;
 public class BeaconServer : IServer
 {
     private readonly ILogger _logger;
-    private readonly LoggerFactory _loggerFactory;
+    private readonly ILoggerFactory _loggerFactory;
     private readonly ServerConfiguration _configuration;
     private readonly ConnectionManager _connectionManager;
     private CancellationTokenSource cancelSource;
     
     public CancellationToken CancelToken => cancelSource?.Token ?? CancellationToken.None;
 
-    public BeaconServer(LoggerFactory loggerFactory, ServerConfiguration configuration)
+    public BeaconServer(ILoggerFactory loggerFactory, ServerConfiguration configuration)
     {
         _logger = loggerFactory.CreateLogger("Server");
         _loggerFactory = loggerFactory;
@@ -41,6 +41,7 @@ public class BeaconServer : IServer
 
     public ValueTask HandleConsoleCommand(string command)
     {
+        Console.WriteLine(command);
         return ValueTask.CompletedTask;
     }
 
