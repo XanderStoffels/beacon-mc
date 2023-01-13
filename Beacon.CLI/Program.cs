@@ -1,20 +1,24 @@
-﻿
-
-
-using Beacon.CLI;
+﻿using Beacon.CLI;
 using Beacon.Hosting;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using Serilog;
+using Serilog.Events;
+
+Log.Information("what");
 
 await Host.CreateDefaultBuilder(args)
-    .ConfigureServices(services =>
+    .ConfigureServices((builder, services) =>
     {
-        services.AddLogging(builder =>
-        {
-            builder.AddConsole();
-        });
         services.AddBeaconServer<Startup>();
+    })
+    .UseSerilog((host, options) =>
+    {
+        options
+            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+            .MinimumLevel.Is(host.HostingEnvironment.IsProduction() ? LogEventLevel.Information : LogEventLevel.Debug)
+            .Enrich.FromLogContext()
+            .WriteTo.Console();
     })
     .Build()
     .RunAsync();
+    

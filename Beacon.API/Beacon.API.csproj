@@ -16,8 +16,4 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <EnforceCodeStyleInBuild>False</EnforceCodeStyleInBuild>
     </PropertyGroup>
-
-    <ItemGroup>
-
-    </ItemGroup>
 </Project>
