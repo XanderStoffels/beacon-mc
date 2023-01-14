@@ -67,14 +67,27 @@ public class BeaconServer : IServer
 
         void Update()
         {
-           HandleNewConnection();
+           HandleNewConnection(cancelToken);
+           
+           // Handle incoming packets.
+           
         }
+    }
 
-        void HandleNewConnection()
+    private void HandleNewConnection(CancellationToken cancelToken)
+    {
+        if (!_clientReceiver.ClientQueue.TryRead(out var client)) return;
+        if (!client.Connected) return; // The client might have disconnected while in queue.
+        var connection = new ClientConnection(client, this);
+        _logger.LogDebug("Accepted connection from {Client}", connection.RemoteEndPoint?.ToString());
+
+        try
         {
-            if (!_clientReceiver.ClientQueue.TryRead(out var client)) return;
-            _logger.LogDebug("Accepted connection from {@Client}", client.RemoteEndPoint?.ToString());
+            Task.Run(() => connection.AcceptPacketsAsync(cancelToken), cancelToken);
         }
-        
+        catch (TaskCanceledException)
+        {
+            // Ignored.
+        }
     }
 }

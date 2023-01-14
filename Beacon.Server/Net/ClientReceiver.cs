@@ -9,23 +9,23 @@ public sealed class ClientReceiver
 {
     private readonly int _port;
     private readonly ILogger _logger;
-    private readonly Channel<ClientConnection> _channel;
+    private readonly Channel<TcpClient> _channel;
     
-    public ChannelReader<ClientConnection> ClientQueue => _channel.Reader;
-    private ChannelWriter<ClientConnection> Writer => _channel.Writer;
+    public ChannelReader<TcpClient> ClientQueue => _channel.Reader;
+    private ChannelWriter<TcpClient> Writer => _channel.Writer;
 
     public ClientReceiver(int port, ILogger logger)
     {
         _port = port;
         _logger = logger;
-        _channel = Channel.CreateUnbounded<ClientConnection>();
+        _channel = Channel.CreateUnbounded<TcpClient>();
     }
     
     public ClientReceiver(int port, int maxQueuedConnections, ILogger logger)
     {
         _port = port;
         // Create a queue for connections. If the queue is full, new connections will be dropped.
-        _channel = Channel.CreateBounded<ClientConnection>(new BoundedChannelOptions(maxQueuedConnections)
+        _channel = Channel.CreateBounded<TcpClient>(new BoundedChannelOptions(maxQueuedConnections)
         {
             SingleWriter = true,
             Capacity = maxQueuedConnections,
@@ -45,8 +45,7 @@ public sealed class ClientReceiver
             try
             {
                 var client = await listener.AcceptTcpClientAsync(cancelToken);
-                var connection = new ClientConnection(client);
-                if (Writer.TryWrite(connection)) continue;
+                if (Writer.TryWrite(client)) continue;
 
                 // If the queue is full, close the connection.
                 _logger.LogWarning("ClientConnection queue is full. Dropping connection from {@Client}",

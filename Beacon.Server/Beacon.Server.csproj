@@ -39,4 +39,11 @@
       <ProjectReference Include="..\Beacon.API\Beacon.API.csproj" />
     </ItemGroup>
 
+
+    <ItemGroup>
+      <Folder Include="Net\Packets\Login" />
+      <Folder Include="Net\Packets\Play" />
+      <Folder Include="Net\Packets\Status" />
+    </ItemGroup>
+
 </Project>

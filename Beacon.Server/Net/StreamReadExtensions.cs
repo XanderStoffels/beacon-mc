@@ -1,51 +1,87 @@
-﻿using System.Buffers.Binary;
+﻿using System.Buffers;
+using System.Buffers.Binary;
 using System.Text;
 
 namespace Beacon.Server.Net;
 
-// Thanks to Obsidian! 
-// https://github.com/ObsidianMC/Obsidian
-
 public static class StreamReadExtensions
 {
+    private static byte[] Rent(int minSize) => ArrayPool<byte>.Shared.Rent(minSize);
+    private static (byte[] buffer, Memory<byte> span) RentWithMemory(int size)
+    {
+        var buffer = Rent(size);
+        return (buffer, buffer.AsMemory(size));
+    }
+    private static void Return(byte[] array) => ArrayPool<byte>.Shared.Return(array);
+    
     public static ulong ReadLong(this Stream stream)
     {
-        Span<byte> buffer = stackalloc byte[8];
-        stream.Read(buffer);
-        return BinaryPrimitives.ReadUInt64BigEndian(buffer);
+        var buffer = Rent(8);
+        var span = buffer.AsSpan(0, 8);
+        stream.ReadExactly(span);
+        var r = BinaryPrimitives.ReadUInt64BigEndian(span);
+        
+        Return(buffer);
+        return r;
     }
 
     public static ushort ReadUnsignedShort(this Stream stream)
     {
-        Span<byte> buffer = stackalloc byte[2];
-        stream.Read(buffer);
-        return BinaryPrimitives.ReadUInt16BigEndian(buffer);
+        var buffer = Rent(2);
+        var span = buffer.AsSpan(0, 2);
+        stream.ReadExactly(span);
+        var r = BinaryPrimitives.ReadUInt16BigEndian(span);
+        
+        Return(buffer);
+        return r;
     }
-
+    
     public static string ReadString(this Stream stream, int maxLength = 32767)
     {
         var (length, _) = stream.ReadVarInt();
-        var buffer = new byte[length];
-        stream.Read(buffer, 0, length);
+        var buffer = Rent(length);
+        var span = buffer.AsSpan(0, length);
+        stream.ReadExactly(span);
 
-        var value = Encoding.UTF8.GetString(buffer);
+        var value = Encoding.UTF8.GetString(span);
         if (maxLength > 0 && value.Length > maxLength)
             throw new IOException($"string ({value.Length}) exceeded maximum length ({maxLength})");
 
+        Return(buffer);
+        return value;
+    }
+    
+    public static async Task<string> ReadStringAsync(this Stream stream, int maxLength = 32767)
+    {
+        var (length, _) = await stream.ReadVarIntAsync();
+        var (buffer, memory) = RentWithMemory(length);
+        await stream.ReadExactlyAsync(memory);
+
+        var value = Encoding.UTF8.GetString(memory.Span);
+        if (maxLength > 0 && value.Length > maxLength)
+            throw new IOException($"string ({value.Length}) exceeded maximum length ({maxLength})");
+
+        Return(buffer);
         return value;
     }
 
     public static byte ReadUnsignedByte(this Stream stream)
     {
-        Span<byte> buffer = stackalloc byte[1];
-        stream.Read(buffer);
-        return buffer[0];
+        var buffer = Rent(1);
+        stream.ReadExactly(buffer, 0, 1);
+        var r = buffer[0];
+        
+        Return(buffer);
+        return r;
     }
 
     public static async ValueTask<byte> ReadUnsignedByteAsync(this Stream stream)
     {
-        var buffer = new byte[1];
-        await stream.ReadAsync(buffer);
+        var buffer = Rent(1);
+        await stream.ReadExactlyAsync(buffer, 0, 1);
+        var r = buffer[0];
+        
+        Return(buffer);
         return buffer[0];
     }
 
@@ -101,6 +137,15 @@ public static class StreamReadExtensions
         } while ((read & 0b10000000) != 0);
 
         return (result, numRead);
+    }
+    
+    public static async Task<ushort> ReadUnsignedShortAsync(this Stream stream)
+    {
+        var buffer = Rent(2);
+        await stream.ReadExactlyAsync(buffer, 0, 2);
+        var result = BinaryPrimitives.ReadUInt16BigEndian(buffer);
+        Return(buffer);
+        return result;
     }
 
     public static async ValueTask<(long value, int bytesRead)> ReadVarLongAsync(this Stream stream,

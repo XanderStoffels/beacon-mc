@@ -8,7 +8,7 @@ namespace Beacon.Server.Utils;
  * A utility class that can be used to (somewhat) accurately wait for timer ticks in an asynchronous way.
  * Due to the nature of <see cref="!:Task.Delay"/>, a timer tick may be delayed by up to 15ms.
  * </summary>
- * <remarks>Credit to the Obsidian team! This is a modified version of their BalancedTimer class.</remarks>
+ * <remarks>Credit to the Obsidian team! This is a modified ProtocolVersion of their BalancedTimer class.</remarks>
  */
 public class GameTimer
 {

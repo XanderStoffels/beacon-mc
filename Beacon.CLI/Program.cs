@@ -4,8 +4,6 @@ using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Events;
 
-Log.Information("what");
-
 await Host.CreateDefaultBuilder(args)
     .ConfigureServices((builder, services) =>
     {
@@ -14,8 +12,8 @@ await Host.CreateDefaultBuilder(args)
     .UseSerilog((host, options) =>
     {
         options
-            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
             .MinimumLevel.Is(host.HostingEnvironment.IsProduction() ? LogEventLevel.Information : LogEventLevel.Debug)
+            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
             .Enrich.FromLogContext()
             .WriteTo.Console();
     })
