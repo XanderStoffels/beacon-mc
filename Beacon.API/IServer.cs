@@ -2,6 +2,6 @@
 
 public interface IServer
 {
-    
+    ServerStatus Status { get; }
     void SignalShutdown();
 }

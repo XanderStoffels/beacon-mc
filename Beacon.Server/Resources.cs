@@ -1,4 +1,4 @@
-﻿namespace Beacon.CLI;
+﻿namespace Beacon.Server;
 
 internal static class Resources
 {

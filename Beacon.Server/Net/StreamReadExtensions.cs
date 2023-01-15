@@ -10,7 +10,7 @@ public static class StreamReadExtensions
     private static (byte[] buffer, Memory<byte> span) RentWithMemory(int size)
     {
         var buffer = Rent(size);
-        return (buffer, buffer.AsMemory(size));
+        return (buffer, buffer.AsMemory(0, size));
     }
     private static void Return(byte[] array) => ArrayPool<byte>.Shared.Return(array);
     
@@ -38,9 +38,9 @@ public static class StreamReadExtensions
     
     public static string ReadString(this Stream stream, int maxLength = 32767)
     {
-        var (length, _) = stream.ReadVarInt();
-        var buffer = Rent(length);
-        var span = buffer.AsSpan(0, length);
+        var (strLength, _) = stream.ReadVarInt();
+        var buffer = Rent(strLength);
+        var span = buffer.AsSpan(0, strLength);
         stream.ReadExactly(span);
 
         var value = Encoding.UTF8.GetString(span);
@@ -53,8 +53,8 @@ public static class StreamReadExtensions
     
     public static async Task<string> ReadStringAsync(this Stream stream, int maxLength = 32767)
     {
-        var (length, _) = await stream.ReadVarIntAsync();
-        var (buffer, memory) = RentWithMemory(length);
+        var (strLength, _) = await stream.ReadVarIntAsync();
+        var (buffer, memory) = RentWithMemory(strLength);
         await stream.ReadExactlyAsync(memory);
 
         var value = Encoding.UTF8.GetString(memory.Span);

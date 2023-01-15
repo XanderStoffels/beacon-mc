@@ -14,6 +14,7 @@ public class BeaconServer : IServer
     private readonly ClientReceiver _clientReceiver;
     private CancellationTokenSource cancelSource;
     
+    public ServerStatus Status { get; }
     public CancellationToken CancelToken => cancelSource?.Token ?? CancellationToken.None;
 
     public BeaconServer(ILoggerFactory loggerFactory, ServerConfiguration configuration)
@@ -23,6 +24,28 @@ public class BeaconServer : IServer
         _configuration = configuration;
         _clientReceiver = new(configuration.Port, 30, _logger);
         cancelSource = new();
+
+        Status = new()
+        {
+            Favicon = Resources.ServerIcon,
+            Description = new()
+            {
+                Text = "A Beacon Server"
+            },
+            Players = new()
+            {
+                Max = 100,
+                Online = 0,
+                Sample = new()
+            },
+            EnforcesSecureChat = false,
+            PreviewsChat = false,
+            Version = new()
+            {
+                Name = "1.19.3",
+                Protocol = 761
+            }
+        };
     }
 
     public Task StartupAsync(CancellationToken cancelToken)
@@ -49,6 +72,7 @@ public class BeaconServer : IServer
         Console.WriteLine(command);
         return ValueTask.CompletedTask;
     }
+    
     public void SignalShutdown()
     {
         cancelSource.Cancel();
@@ -78,8 +102,8 @@ public class BeaconServer : IServer
     {
         if (!_clientReceiver.ClientQueue.TryRead(out var client)) return;
         if (!client.Connected) return; // The client might have disconnected while in queue.
-        var connection = new ClientConnection(client, this);
-        _logger.LogDebug("Accepted connection from {Client}", connection.RemoteEndPoint?.ToString());
+        var connection = new ClientConnection(client, this, _logger);
+        _logger.LogDebug("[{IP}] Accepted connection", connection.RemoteEndPoint?.ToString());
 
         try
         {
