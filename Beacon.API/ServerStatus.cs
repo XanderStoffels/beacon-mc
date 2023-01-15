@@ -1,37 +1,35 @@
 ﻿namespace Beacon.API;
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
 public class ServerStatus
 {
-    public required ProtocolVersion Version { get; set; }
-    public required OnlinePlayers Players { get; set; }
-    public required Motd Description { get; set; }
-    public required string? Favicon { get; set; }
-    public required bool PreviewsChat { get; set; }
-    public required bool EnforcesSecureChat { get; set; }
-    
-    public class Motd
-    {
-        public required string Text { get; set; }
-    }
+    public ServerVersionModel Version { get; set; }
+    public OnlinePlayersModel Players { get; set; }
+    public DescriptionModel Description { get; set; }
+    public string Favicon { get; set; }
+}
 
-    public class OnlinePlayers
-    {
-        public int Max { get; set; }
-        public int Online { get; set; }
-        public required List<PlayerSample> Sample { get; set; }
-    }
-    
-    public class PlayerSample
-    {
-        public required string Name { get; set; }
-        public required string Id { get; set; }
-    }
+public class ServerVersionModel
+{
+    public string Name { get; set; }
+    public int Protocol { get; set; }
+}
 
-    public class ProtocolVersion
-    {
-        public required string Name { get; set; }
-        public required int Protocol { get; set; }
-    }
+public class OnlinePlayersModel
+{
+    public int Max { get; set; }
+    public int Online { get; set; }
+    public OnlinePlayerModel[] Sample { get; set; }
+}
 
+public class OnlinePlayerModel
+{
+    public string Name { get; set; }
+    public string Id { get; set; }
+}
+
+public class DescriptionModel
+{
+    public string Text { get; set; }
 }
 

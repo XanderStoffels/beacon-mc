@@ -1,4 +1,7 @@
-﻿using Beacon.API;
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
+using Beacon.API;
+using Beacon.Server.Utils;
 
 namespace Beacon.Server.Net.Packets.Status.Clientbound;
 
@@ -8,20 +11,26 @@ namespace Beacon.Server.Net.Packets.Status.Clientbound;
 public class StatusResponsePacket
 {
     public const int PacketId = 0x00;
-    public string StatusAsJson { get; set; } = string.Empty;
+    public ServerStatus? ServerStatus { get; set; }
 
-    public void Serialize(Stream stream, bool flush = true)
+    public async Task SerializeAsync(Stream stream)
     {
-         stream.WriteVarInt(PacketId);
-         stream.WriteString(StatusAsJson);
-         if (flush) stream.Flush();
+        if (ServerStatus == null)
+            throw new ArgumentNullException(nameof(ServerStatus));
+        
+        using var memory = MemoryStreaming.Manager.GetStream();
+        await memory.WriteVarIntAsync(PacketId);
+        await memory.WriteStringAsync(StatusAsJson);
+        
+        await stream.WriteVarIntAsync((int)memory.Length);
+        memory.WriteTo(stream);
+        await stream.FlushAsync();
     }
-
-    public async Task SerializeAsync(Stream stream, bool flush = true)
-    {
-         await stream.WriteVarIntAsync(PacketId);
-         await stream.WriteStringAsync(StatusAsJson);
-         if (flush) await stream.FlushAsync();
-    }
-
+    
+    private string StatusAsJson => JsonSerializer.Serialize(ServerStatus,
+        new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        });
 }

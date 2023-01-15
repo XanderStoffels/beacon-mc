@@ -22,12 +22,18 @@ internal static class StreamWriteExtensions
 
     public static void WriteString(this Stream stream, string value)
     {
+        /*
         var length = Encoding.UTF8.GetByteCount(value);
         var bytes = ArrayPool<byte>.Shared.Rent(length);
         Encoding.UTF8.GetBytes(value, bytes);
         stream.WriteVarInt(length);
         stream.Write(bytes.AsSpan(0, length));
         ArrayPool<byte>.Shared.Return(bytes);
+        */ 
+        var bytes = new byte[Encoding.UTF8.GetByteCount(value)];
+        Encoding.UTF8.GetBytes(value, bytes.AsSpan());
+        stream.WriteVarInt(bytes.Length);
+        stream.Write(bytes);
     }
     
     public static async Task WriteStringAsync(this Stream stream, string value)

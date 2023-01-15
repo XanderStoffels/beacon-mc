@@ -25,26 +25,31 @@ public class BeaconServer : IServer
         _clientReceiver = new(configuration.Port, 30, _logger);
         cancelSource = new();
 
-        Status = new()
+        Status = new ServerStatus
         {
-            Favicon = Resources.ServerIcon,
-            Description = new()
-            {
-                Text = "A Beacon Server"
-            },
-            Players = new()
-            {
-                Max = 100,
-                Online = 0,
-                Sample = new()
-            },
-            EnforcesSecureChat = false,
-            PreviewsChat = false,
-            Version = new()
+            Version = new ServerVersionModel
             {
                 Name = "1.19.3",
                 Protocol = 761
-            }
+            },
+            Players = new OnlinePlayersModel
+            {
+                Max = 10,
+                Online = 1,
+                Sample = new[]
+                {
+                    new OnlinePlayerModel
+                    {
+                        Name = "Notch",
+                        Id = new Guid().ToString()
+                    }
+                }
+            },
+            Description = new DescriptionModel
+            {
+                Text = "A Beacon Server!"
+            },
+            Favicon = Resources.ServerIcon
         };
     }
 

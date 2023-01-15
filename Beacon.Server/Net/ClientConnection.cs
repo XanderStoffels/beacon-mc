@@ -105,13 +105,8 @@ public sealed class ClientConnection
         switch (packetId)
         {
             case 0x00: // Status Request
-                var status = _server.Status;
                 var packet = ObjectPool<StatusResponsePacket>.Shared.Get();
-                packet.StatusAsJson = JsonSerializer.Serialize(status,  new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-                });
+                packet.ServerStatus = _server.Status;
                 await packet.SerializeAsync(NetworkStream);
                 _logger.LogDebug("Send server status success");
                 break;
