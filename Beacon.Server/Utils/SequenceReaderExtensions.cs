@@ -14,7 +14,7 @@ public static class SequenceReaderExtensions
     /// <remarks>A VarInt is between 1 and 5 bytes long. Important: if a VarInt could not be parsed, the reader can still have advanced by maximum 5 bytes.
     /// You can check bytesRead to see how many places the reader has advanced.</remarks>
     /// <returns>Indicator if there is enough data to read a VarInt</returns>
-    public static bool TryReadVarInt(this SequenceReader<byte> reader, out int result, out int bytesRead)
+    public static bool TryReadVarInt(this ref SequenceReader<byte> reader, out int result, out int bytesRead)
     {
         result = default;
         bytesRead = default;
@@ -40,7 +40,7 @@ public static class SequenceReaderExtensions
     /// <remarks>A VarLong is between 1 and 10 bytes long. Important: if a VarLong could not be parsed, the reader can still have advanced by maximum 10 bytes.
     /// You can check bytesRead to see how many places the reader has advanced.</remarks>
     /// <returns>Indicator if there is enough data to read a VarLong</returns>
-    public static bool TryReadVarLong(this SequenceReader<byte> reader, out long result, out int bytesRead)
+    public static bool TryReadVarLong(this ref SequenceReader<byte> reader, out long result, out int bytesRead)
     {
         result = default;
         bytesRead = default;
@@ -67,7 +67,7 @@ public static class SequenceReaderExtensions
     /// <returns>Indicator if there is enough data to read a VarInt and a string the size of the VarInt's value</returns>
     /// <remarks>The string should be UTF-8 encoded.</remarks>
     /// <exception cref="IOException">If the string exceeds the provided max length.</exception>
-    public static bool TryReadString(this SequenceReader<byte> reader, out string result, out int bytesRead, int maxStringLength = 32767)
+    public static bool TryReadString(this ref SequenceReader<byte> reader, out string result, out int bytesRead, int maxStringLength = 32767)
     {
         result = string.Empty;
         bytesRead = 0;
@@ -93,7 +93,7 @@ public static class SequenceReaderExtensions
     /// <param name="result"></param>
     /// <param name="bytesRead"></param>
     /// <returns>Indicator if there is enough data to read a ushort</returns>
-    public static bool TryReadUnsignedShort(this SequenceReader<byte> reader, out ushort result, out int bytesRead)
+    public static bool TryReadUnsignedShort(this ref SequenceReader<byte> reader, out ushort result, out int bytesRead)
     {
         result = 0;
         bytesRead = 0;

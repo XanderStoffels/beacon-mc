@@ -21,27 +21,12 @@ public class HandshakePacket : IServerBoundPacket
     /// </summary>
     public ConnectionState NextState { get; set; }
     
-    public void ReadPacket(Stream stream)
-    {
-        ProtocolVersion = stream.ReadVarInt().value;
-        ServerAddress = stream.ReadString(255);
-        ServerPort = stream.ReadUnsignedShort();
-        NextState = stream.ReadVarInt().value switch
-        {
-            1 => ConnectionState.Status,
-            2 => ConnectionState.Login,
-            _ => throw new InvalidDataException("Invalid next state in Handshake packet.")
-        };
-    }
-
-
     public ValueTask HandleAsync(BeaconServer server, ClientConnection client)
     {
-        client.State = NextState;
         return ValueTask.CompletedTask;
     }
 
-    public static bool TryRentAndFill(SequenceReader<byte> reader, out IServerBoundPacket? packet)
+    public static bool TryRentAndFill(ref SequenceReader<byte> reader, out HandshakePacket? packet)
     {
         packet = default;
 

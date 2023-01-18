@@ -14,11 +14,11 @@ public class StatusRequestPacket : IServerBoundPacket
     {
         var packet = ObjectPool<StatusResponsePacket>.Shared.Get();
         packet.ServerStatus = server.Status;
+        server.Logger.LogDebug("[{IP}] Sending server status", client.Ip);
         await packet.SerializeAsync(client.NetworkStream);
-        server.Logger.LogDebug("Send server status success");
     }
 
-    public static bool TryRentAndFill(SequenceReader<byte> reader, out IServerBoundPacket? packet)
+    public static bool TryRentAndFill(ref SequenceReader<byte> reader, out IServerBoundPacket? packet)
     {
         var instance = ObjectPool<StatusRequestPacket>.Shared.Get();
         instance._isRented = true;

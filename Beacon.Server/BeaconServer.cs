@@ -116,10 +116,13 @@ public class BeaconServer : IServer
                .TryRead(out var message))
         {
             await message.Packet.HandleAsync(this, message.Connection);
+            message.Dispose();
+            
             Logger.LogDebug("[{IP}] [{State}] Handled packet with ID {PacketId}", 
                 message.Connection.Ip, 
                 message.Connection.State, 
                 message.Packet.Id);
+            
         }
     }
 

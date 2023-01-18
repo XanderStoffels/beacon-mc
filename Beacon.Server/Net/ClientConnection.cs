@@ -138,22 +138,22 @@ public sealed class ClientConnection
         
         return State switch
         {
-            ConnectionState.Handshaking => ParseHandshakeStatePacket(packetId, reader),
-            ConnectionState.Status => ParseStatusStatePacket(packetId, reader),
-            ConnectionState.Login => ParseLoginStatePacket(packetId, reader),
-            ConnectionState.Play => ParsePlayStatePacket(packetId, reader),
+            ConnectionState.Handshaking => ParseHandshakeStatePacket(packetId, ref reader),
+            ConnectionState.Status => ParseStatusStatePacket(packetId, ref reader),
+            ConnectionState.Login => ParseLoginStatePacket(packetId, ref reader),
+            ConnectionState.Play => ParsePlayStatePacket(packetId, ref reader),
             _ => throw new ArgumentOutOfRangeException(nameof(State))
         };
     }
     
 
-    private IServerBoundPacket? ParseHandshakeStatePacket(int packetId, SequenceReader<byte> reader)
+    private IServerBoundPacket? ParseHandshakeStatePacket(int packetId, ref SequenceReader<byte> reader)
     {
-        IServerBoundPacket? packet;
         switch (packetId)
         {
             case 0x00: // Handshake
-                HandshakePacket.TryRentAndFill(reader, out packet);
+                HandshakePacket.TryRentAndFill(ref reader, out var packet);
+                State = packet?.NextState ?? State;
                 return packet;
 
             case 0xFE when ExpectLegacyPing:
@@ -162,17 +162,17 @@ public sealed class ClientConnection
                 return null;
                 
             default:
-                _logger.LogWarning("[{IP}] [{State}] The given packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
+                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
                 return null;
         }
     }
-    private IServerBoundPacket? ParseStatusStatePacket(int packetId, SequenceReader<byte> reader)
+    private IServerBoundPacket? ParseStatusStatePacket(int packetId, ref SequenceReader<byte> reader)
     {
         IServerBoundPacket? packet;
         switch (packetId)
         {
             case 0x00: // Status Request
-                StatusRequestPacket.TryRentAndFill(reader, out packet);
+                StatusRequestPacket.TryRentAndFill(ref reader, out packet);
                 return packet;
 
             case 0xFE when ExpectLegacyPing: // Legacy client server list ping.
@@ -182,31 +182,31 @@ public sealed class ClientConnection
                 return null;
             
             case 0x01: // Ping Request
-                _logger.LogWarning("[{IP}] [{State}] The given packet Id {PacketId} is not yet implemented", Ip, State, packetId);
+                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not yet implemented", Ip, State, packetId);
                 return null;
             default:
                 ExpectLegacyPing = false;
-                _logger.LogWarning("[{IP}] [{State}] The given packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
+                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
                 return null;
         } 
         
     }
-    private IServerBoundPacket? ParseLoginStatePacket(int packetId, SequenceReader<byte> reader)
+    private IServerBoundPacket? ParseLoginStatePacket(int packetId, ref SequenceReader<byte> reader)
     {
         switch (packetId)
         {
             case 0x00: // Login Start
             case 0x01: // Encryption Response
             case 0x02: // Login Plugin Response
-                _logger.LogWarning("[{IP}] [{State}] The given packet Id {PacketId} is not yet implemented", Ip, State, packetId);
+                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not yet implemented", Ip, State, packetId);
                 return null;
             default:
-                _logger.LogWarning("[{IP}] [{State}] The given packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
+                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
                 return null;
         }    
 
     }
-    private IServerBoundPacket? ParsePlayStatePacket(int packetId, SequenceReader<byte> reader)
+    private IServerBoundPacket? ParsePlayStatePacket(int packetId, ref SequenceReader<byte> reader)
     {
         switch (packetId)
         {
@@ -261,10 +261,10 @@ public sealed class ClientConnection
             case 0x30: // Teleport To Entity
             case 0x31: // Use Item On
             case 0x32: // Use Item
-                _logger.LogWarning("[{IP}] [{State}] The given packet Id {PacketId} is not yet implemented", Ip, State, packetId);
+                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not yet implemented", Ip, State, packetId);
                 return null;
             default:
-                _logger.LogWarning("[{IP}] [{State}] The given packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
+                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
                 return null;
         }
 
