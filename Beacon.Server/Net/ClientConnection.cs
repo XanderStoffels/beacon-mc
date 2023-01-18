@@ -1,8 +1,8 @@
 ﻿using System.Buffers;
+using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using Beacon.Server.Net.Packets;
 using Beacon.Server.Net.Packets.Handshaking.Serverbound;
 using Beacon.Server.Net.Packets.Status.Clientbound;
 using Beacon.Server.Utils;
@@ -34,6 +34,7 @@ public sealed class ClientConnection
 
     public async Task AcceptPacketsAsync(CancellationToken cancelToken)
     {
+
         try
         {
             while (!cancelToken.IsCancellationRequested && _tcp.Connected)
@@ -78,6 +79,106 @@ public sealed class ClientConnection
         
     }
     
+    
+    private async Task FillPipeAsync(PipeWriter writer, CancellationToken cancelToken)
+    {
+        const int minimumBufferSize = 1024 * 2;
+        while (!cancelToken.IsCancellationRequested)
+        {
+            var memory = writer.GetMemory(minimumBufferSize);
+            try
+            {
+                var amountRead = await NetworkStream.ReadAsync(memory, cancelToken);
+                if (amountRead == 0) // Client disconnected
+                    break;
+                
+                writer.Advance(amountRead);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "[{IP}] [{State}] Error while reading from the network stream", IP, State);
+                await writer.CompleteAsync(e); // Let the reader know there is no more data due to error.
+                break;
+            }
+            
+            var result = await writer.FlushAsync(cancelToken);
+            if (result.IsCompleted) // Reader indicated that it no longer wants data.
+                return;
+        }
+
+        await writer.CompleteAsync();
+    }
+
+    private async Task ReadPipeAsync(PipeReader reader)
+    {
+        while (true)
+        {
+            var readResult = await reader.ReadAsync();
+            var buffer = readResult.Buffer;
+
+            while (true)
+            {
+                // Try to check if there are enough bytes to read a VarInt.
+                if (!TryPeekVarInt(buffer, out var nextPacketSize, out var bytesExamined))
+                    break; // We don't have enough data to read a VarInt. Wait for more data.
+
+                
+                // We now know the size of the packet.
+                buffer = buffer.Slice(bytesExamined);
+                
+                // Check if the buffer has enough data for the whole packet.
+                if (buffer.Length < nextPacketSize)
+                    break;  // We don't have enough data for the whole packet. Wait some more.
+                
+                var packetBuffer = buffer.Slice(0, nextPacketSize);
+                
+
+                buffer = buffer.Slice(nextPacketSize);
+            }
+            
+            reader.AdvanceTo(buffer.Start, buffer.End);
+            
+            // Is there any more data coming after this?
+            if (readResult.IsCompleted)
+                break;
+
+        }
+
+        IServerBoundPacket ParsePacket(ReadOnlySequence<byte> sequence, int packetSize)
+        {
+            var sequenceReader =  new SequenceReader<byte>(sequence);
+            if (sequenceReader.TryReadExact(packetSize, out var packetData)) 
+            {
+                packetData.First.Span
+            }
+        }
+
+    }
+    
+
+    private bool TryPeekVarInt(ReadOnlySequence<byte> buffer, out int result, out int bytesExamined)
+    {
+        var reader = new SequenceReader<byte>(buffer);
+        bytesExamined = 0;
+        result = 0;
+        do
+        {
+            if (!reader.TryRead(out var nextByte)) return false; // Not enough data to parse the whole VarInt.
+            
+            var value = nextByte & 0b01111111;
+            result |= value << (7 * bytesExamined);
+            bytesExamined++;
+
+            if ((nextByte & 0b10000000) == 0) // Is the VarInt complete?
+                return true;
+            
+        } while (bytesExamined < 5);
+    
+        // If we get here, no VarInt was found.
+        return false;
+    }
+
+
     private async Task HandleHandshakeState(int packetId, Stream payloadStream, CancellationToken cancelToken)
     {
         switch (packetId)
@@ -250,7 +351,6 @@ public sealed class ClientConnection
             ArrayPool<byte>.Shared.Return(buffer);
         }
     }
-
 
     public void Dispose()
     {

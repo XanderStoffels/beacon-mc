@@ -1,4 +1,6 @@
-﻿namespace Beacon.Server.Net.Packets.Handshaking.Serverbound;
+﻿using Beacon.Server.Utils;
+
+namespace Beacon.Server.Net.Packets.Handshaking.Serverbound;
 
 public class HandshakePacket : IServerBoundPacket
 {

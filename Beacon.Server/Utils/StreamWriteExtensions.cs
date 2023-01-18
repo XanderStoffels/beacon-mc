@@ -2,7 +2,7 @@
 using System.Buffers.Binary;
 using System.Text;
 
-namespace Beacon.Server.Net;
+namespace Beacon.Server.Utils;
 
 internal static class StreamWriteExtensions
 {
