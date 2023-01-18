@@ -1,6 +1,7 @@
-﻿using System.Diagnostics;
+﻿using System.Threading.Channels;
 using Beacon.API;
 using Beacon.Server.Net;
+using Beacon.Server.Net.Packets;
 using Beacon.Server.Utils;
 using Microsoft.Extensions.Logging;
 
@@ -8,22 +9,29 @@ namespace Beacon.Server;
 
 public class BeaconServer : IServer
 {
-    private readonly ILogger _logger;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ServerConfiguration _configuration;
     private readonly ClientReceiver _clientReceiver;
-    private CancellationTokenSource cancelSource;
+    private readonly Channel<QueuedServerboundPacket> _incomingPacketChannel;
+    private readonly CancellationTokenSource _cancelSource;
     
+    public ILogger Logger { get; }
     public ServerStatus Status { get; }
-    public CancellationToken CancelToken => cancelSource?.Token ?? CancellationToken.None;
+    
+    public CancellationToken CancelToken => _cancelSource.Token;
+    public ChannelWriter<QueuedServerboundPacket> IncomingPacketsChannel => _incomingPacketChannel.Writer;
 
     public BeaconServer(ILoggerFactory loggerFactory, ServerConfiguration configuration)
     {
-        _logger = loggerFactory.CreateLogger("Server");
+        Logger = loggerFactory.CreateLogger("Server");
+        _cancelSource = new();
         _loggerFactory = loggerFactory;
         _configuration = configuration;
-        _clientReceiver = new(configuration.Port, 30, _logger);
-        cancelSource = new();
+        _clientReceiver = new(configuration.Port, 30, Logger);
+        _incomingPacketChannel = Channel.CreateUnbounded<QueuedServerboundPacket>(new()
+        {
+            SingleReader = true
+        });
 
         Status = new ServerStatus
         {
@@ -55,10 +63,10 @@ public class BeaconServer : IServer
 
     public Task StartupAsync(CancellationToken cancelToken)
     {
-        _logger.LogInformation("Starting Beacon");
+        Logger.LogInformation("Starting Beacon");
         
         // Propagate the external cancellation to the server's cancellation token source.
-        cancelToken.Register(cancelSource.Cancel);
+        cancelToken.Register(_cancelSource.Cancel);
         
         // Start server tasks.
         var tcpTask = _clientReceiver.AcceptClientsAsync(cancelToken);
@@ -70,7 +78,7 @@ public class BeaconServer : IServer
 
     public void WaitForCompletion()
     {
-         cancelSource.Token.WaitHandle.WaitOne();
+         _cancelSource.Token.WaitHandle.WaitOne();
     }
     public ValueTask HandleConsoleCommand(string command)
     {
@@ -80,7 +88,7 @@ public class BeaconServer : IServer
     
     public void SignalShutdown()
     {
-        cancelSource.Cancel();
+        _cancelSource.Cancel();
     }
 
     private async Task DoGameLoopAsync(CancellationToken cancelToken)
@@ -90,16 +98,28 @@ public class BeaconServer : IServer
         while (!cancelToken.IsCancellationRequested)
         {
             var timeLeft = await timer.WaitForNextTickAsync();
-            if (timeLeft < 0) _logger.LogWarning("Can not keep up! ({Time}ms behind)", -timeLeft);
-            Update();
+            if (timeLeft < 0) Logger.LogWarning("Can not keep up! ({Time}ms behind)", -timeLeft);
+            await Update();
         }
 
-        void Update()
+        async Task Update()
         {
            HandleNewConnection(cancelToken);
-           
-           // Handle incoming packets.
-           
+           await HandlePackets();
+        }
+    }
+
+    private async Task HandlePackets()
+    {
+        while (_incomingPacketChannel
+               .Reader
+               .TryRead(out var message))
+        {
+            await message.Packet.HandleAsync(this, message.Connection);
+            Logger.LogDebug("[{IP}] [{State}] Handled packet with ID {PacketId}", 
+                message.Connection.Ip, 
+                message.Connection.State, 
+                message.Packet.Id);
         }
     }
 
@@ -107,8 +127,8 @@ public class BeaconServer : IServer
     {
         if (!_clientReceiver.ClientQueue.TryRead(out var client)) return;
         if (!client.Connected) return; // The client might have disconnected while in queue.
-        var connection = new ClientConnection(client, this, _logger);
-        _logger.LogDebug("[{IP}] Accepted connection", connection.RemoteEndPoint?.ToString());
+        var connection = new ClientConnection(client, this, Logger);
+        Logger.LogDebug("[{IP}] Accepted connection", connection.RemoteEndPoint?.ToString());
 
         try
         {

@@ -1,11 +1,15 @@
-﻿namespace Beacon.Server.Net.Packets;
+﻿using System.Buffers;
+
+namespace Beacon.Server.Net.Packets;
 
 public interface IServerBoundPacket
 {
-    /// <summary>
-    /// Replaces the values in this objects properties with data parsed from the given Span.
-    /// </summary>
-    /// <param name="bytes"></param>
-    public void Fill(Span<byte> bytes);
+    public int Id { get; }
     ValueTask HandleAsync(BeaconServer server, ClientConnection client);
+
+    public static bool TryRentAndFill(SequenceReader<byte> reader, out IServerBoundPacket? packet)
+    {
+        throw new InvalidOperationException();
+    }
+    public void Return();
 }
