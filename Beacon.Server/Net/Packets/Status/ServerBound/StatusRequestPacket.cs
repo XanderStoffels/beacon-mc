@@ -1,13 +1,13 @@
 ﻿using System.Buffers;
-using Beacon.Server.Net.Packets.Status.Clientbound;
+using Beacon.Server.Net.Packets.Status.ClientBound;
 using Beacon.Server.Utils;
 using Microsoft.Extensions.Logging;
 
-namespace Beacon.Server.Net.Packets.Status.Serverbound;
+namespace Beacon.Server.Net.Packets.Status.ServerBound;
 
 public class StatusRequestPacket : IServerBoundPacket
 {    
-    private bool _isRented = false;
+    private bool _isRented;
     public int Id => 0x00;
     
     public async ValueTask HandleAsync(BeaconServer server, ClientConnection client)
@@ -28,6 +28,8 @@ public class StatusRequestPacket : IServerBoundPacket
 
     public void Return()
     {
-        if (_isRented) ObjectPool<StatusRequestPacket>.Shared.Return(this);
+        if (!_isRented) return;
+        _isRented = false;
+        ObjectPool<StatusRequestPacket>.Shared.Return(this);
     }
 }

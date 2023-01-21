@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Beacon.Server.Utils;
@@ -44,7 +45,7 @@ public static class SequenceReaderExtensions
     {
         result = default;
         bytesRead = default;
-        if (reader.Length == 0) return false;
+        if (reader.Remaining == 0) return false;
 
         while (reader.TryRead(out var nextByte))
         {
@@ -109,4 +110,5 @@ public static class SequenceReaderExtensions
         result = (ushort)((byte1 << 8) | byte2);
         return true;
     }
+    
 }

@@ -2,15 +2,22 @@
 using System.Buffers.Binary;
 using System.Text;
 
-namespace Beacon.Server.Utils;
+namespace Beacon.Server.Utils.Extensions;
 
 internal static class StreamWriteExtensions
 {
-    public static void WriteLong(this Stream stream, ulong value)
+    public static void WriteLong(this Stream stream, long value)
     {
         Span<byte> buffer = stackalloc byte[8];
-        BinaryPrimitives.WriteUInt64BigEndian(buffer, value);
+        BinaryPrimitives.WriteInt64BigEndian(buffer, value);
         stream.Write(buffer);
+    }
+    
+    public static async Task WriteLongAsync(this Stream stream, long value)
+    {
+        var buffer = ArrayPool<byte>.Shared.Rent(8);
+        BinaryPrimitives.WriteInt64BigEndian(buffer.AsSpan(0, 8), value);
+        await stream.WriteAsync(buffer, 0, 8);
     }
 
     public static void WriteUnsignedShort(this Stream stream, ushort value)

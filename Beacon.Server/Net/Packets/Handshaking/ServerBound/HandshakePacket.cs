@@ -10,16 +10,16 @@ public class HandshakePacket : IServerBoundPacket
     public const int PacketId = 0x00;
     public int Id => PacketId;
 
-    public int ProtocolVersion { get; set; }
+    public int ProtocolVersion { get; private set; }
     /// <summary>
     /// Hostname or IP, e.g. localhost or 127.0.0.1, that was used to connect.
     /// </summary>
-    public string ServerAddress { get; set; } = string.Empty;
-    public ushort ServerPort { get; set; }
+    public string ServerAddress { get; private set; } = string.Empty;
+    public ushort ServerPort { get; private set; }
     /// <summary>
     /// 1 for Status, 2 for Login.
     /// </summary>
-    public ConnectionState NextState { get; set; }
+    public ConnectionState NextState { get; private set; }
     
     public ValueTask HandleAsync(BeaconServer server, ClientConnection client)
     {
@@ -52,7 +52,7 @@ public class HandshakePacket : IServerBoundPacket
         {
             1 => ConnectionState.Status,
             2 => ConnectionState.Login,
-            _ => throw new InvalidDataException("Invalid next state in Handshake packet.")
+            _ => throw new InvalidDataException("InvalidPacket next state in Handshake packet.")
         };
 
         packet = instance;
@@ -61,6 +61,8 @@ public class HandshakePacket : IServerBoundPacket
 
     public void Return()
     {
-        if (_isRented) ObjectPool<HandshakePacket>.Shared.Return(this);
+        if (!_isRented) return;
+        _isRented = false;
+        ObjectPool<HandshakePacket>.Shared.Return(this);
     }
 }
