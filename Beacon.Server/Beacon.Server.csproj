@@ -16,6 +16,8 @@
         <RepositoryUrl>https://github.com/XanderStoffels/beacon-mc</RepositoryUrl>
         <PackageIcon>beacon.png</PackageIcon>
         <ApplicationIcon>beacon.ico</ApplicationIcon>
+		<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+		<CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)\GeneratedFiles</CompilerGeneratedFilesOutputPath>
     </PropertyGroup>
 
     <ItemGroup>
