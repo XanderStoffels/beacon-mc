@@ -2,8 +2,9 @@
 using System.Text.Json.Serialization;
 using Beacon.API;
 using Beacon.Server.Utils;
+using Beacon.Server.Utils.Extensions;
 
-namespace Beacon.Server.Net.Packets.Status.Clientbound;
+namespace Beacon.Server.Net.Packets.Status.ClientBound;
 
 /// <summary>
 /// A response to the client's status request.
@@ -17,13 +18,15 @@ public class StatusResponsePacket
     {
         if (ServerStatus == null)
             throw new ArgumentNullException(nameof(ServerStatus));
-        
-        using var memory = MemoryStreaming.Manager.GetStream();
-        await memory.WriteVarIntAsync(PacketId);
-        await memory.WriteStringAsync(StatusAsJson);
-        
-        await stream.WriteVarIntAsync((int)memory.Length);
-        memory.WriteTo(stream);
+
+        var idLength = PacketId.GetVarIntLength();
+        var json = StatusAsJson;
+        var jsonLength = json.GetVarStringLength();
+        var packetLength = idLength + jsonLength;
+
+        await stream.WriteVarIntAsync(packetLength);
+        await stream.WriteVarIntAsync(PacketId);
+        await stream.WriteStringAsync(json);
         await stream.FlushAsync();
     }
     
@@ -33,4 +36,5 @@ public class StatusResponsePacket
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         });
+    
 }

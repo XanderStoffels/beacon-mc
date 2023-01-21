@@ -1,10 +1,12 @@
 ﻿using System.Buffers;
+using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using Beacon.Server.Logging;
+using Beacon.Server.Net.Packets;
+using Beacon.Server.Net.Packets.Exceptions;
 using Beacon.Server.Net.Packets.Handshaking.Serverbound;
-using Beacon.Server.Net.Packets.Status.Clientbound;
+using Beacon.Server.Net.Packets.Status.ServerBound;
 using Beacon.Server.Utils;
 using Microsoft.Extensions.Logging;
 
@@ -12,20 +14,22 @@ namespace Beacon.Server.Net;
 
 public sealed class ClientConnection
 {
-    private readonly TcpClient _tcp;
     private readonly BeaconServer _server;
     private readonly ILogger _logger;
-    private Stream NetworkStream => _tcp.GetStream();
+    
+    public TcpClient Tcp { get; }
 
-    public EndPoint? RemoteEndPoint => _tcp.Client.RemoteEndPoint;
-    public string? IP => RemoteEndPoint?.ToString();
+    public EndPoint? RemoteEndPoint => Tcp.Client.RemoteEndPoint;
+    public string? Ip => RemoteEndPoint?.ToString();
     public ConnectionState State { get; internal set; }
     public bool ExpectLegacyPing { get; set; }
+    public NetworkStream NetworkStream => Tcp.GetStream();
+
     
 
     public ClientConnection(TcpClient tcp, BeaconServer server, ILogger logger)
     {
-        _tcp = tcp;
+        Tcp = tcp;
         _server = server;
         _logger = logger;
         State = ConnectionState.Handshaking;
@@ -34,113 +38,166 @@ public sealed class ClientConnection
 
     public async Task AcceptPacketsAsync(CancellationToken cancelToken)
     {
-        try
-        {
-            while (!cancelToken.IsCancellationRequested && _tcp.Connected)
-            {
-                _logger.LogDebug("[{IP}] [{State}] Accepting next packet", IP, State);
-                var (packetId, payloadStream) = await ReadPacketIntoMemory(cancelToken);
-                _logger.LogDebug("[{IP}] [{State}] {PacketId} with length {PacketLength}",  IP, State, packetId, payloadStream.Length);
-                switch (State)
-                {
-                    case ConnectionState.Handshaking:
-                        await HandleHandshakeState(packetId, payloadStream, cancelToken);
-                        break;
-                    case ConnectionState.Status:
-                        await HandleStatusState(packetId, payloadStream, cancelToken);
-                        break;
-                    case ConnectionState.Login:
-                        await HandleLoginState(packetId, payloadStream, cancelToken);
-                        break;
-                    case ConnectionState.Play:
-                        await HandlePlayState(packetId, payloadStream, cancelToken);
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-                
-                _logger.LogDebug("[{IP}] [{State}] Handled packet {PacketId}", IP, State, packetId);
-                await payloadStream.DisposeAsync();
-            }
-        }
-        catch (EndOfStreamException)
-        {
-            // Can happen while reading exact amount of bytes from the stream. Are you trying to read too much data?
-            // Some old Minecraft packets have a different format where they don't send the packet size. Legacy Server list ping for example.
-            _logger.LogWarning("[{IP}] [{State}] Unexpected end of stream: expected more data. Closing the connection", IP, State);
-            Dispose();
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "[{IP}] [{State}] Error while accepting packet. Closing the connection", IP, State);
-            Dispose();
-        }
-        
+        var reader = PipeReader.Create(NetworkStream);
+        _logger.LogDebug("[{IP}] [{State}] Start accepting packets", Ip, State);
+        await ReadPipeAsync(reader);
+        _logger.LogDebug("[{IP}] [{State}] Stopped accepting packets", Ip, State);
     }
     
-    private async Task HandleHandshakeState(int packetId, Stream payloadStream, CancellationToken cancelToken)
+    private async Task ReadPipeAsync(PipeReader pipeReader)
+    {
+        var keepReading = true;
+        while (keepReading)
+        {
+            var readResult = await pipeReader.ReadAsync();
+            if (readResult.IsCanceled)
+            {
+                _logger.LogPipeCanceledFromWriter(Ip, State);
+                return;
+            }
+            
+            var buffer = readResult.Buffer;
+
+            // Keep processing this buffer until we require more data from the pipe.
+            // We handle this in a sync method so we can parse the buffer using a SequenceReader.
+            // No async needed since all bytes are already in memory.
+            while (ParsePacketsWhileEnoughData())
+            {}
+            
+            // True: we have enough data. Process some more. False: wait for more data.
+            bool ParsePacketsWhileEnoughData()
+            {
+                var sequenceReader = new SequenceReader<byte>(buffer);
+                // Try to check if there are enough bytes to read a VarInt.
+                if (!sequenceReader.TryReadVarInt(out var nextPacketSize, out _))
+                    return false; // We don't have enough data to read a VarInt. Wait for more data.
+
+                // We now know the size of the packet. 
+                // Check if the reader has enough data for the whole packet.
+                if (!sequenceReader.TryReadExact(nextPacketSize, out var packetData))
+                    return false; // There is not enough data for the whole packed. Wait some more.
+
+                var parseResult = ParseAndQueuePacket(packetData);
+                switch (parseResult)
+                {
+                    case QueueAndParseResult.Ok:
+                        buffer = buffer.Slice(nextPacketSize + 1);
+                        return !buffer.IsEmpty;
+                    case QueueAndParseResult.NeedMoreData:
+                        return false;
+                    case QueueAndParseResult.InvalidPacket:
+                        throw new PacketParsingException($"Invalid packet received from {Ip}"); ;
+                    case QueueAndParseResult.CouldNotQueue:
+                        throw new($"Could not queue a packet for {Ip}");
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(parseResult));
+                }
+                
+            }
+            
+            pipeReader.AdvanceTo(buffer.Start, buffer.End);
+            
+            // Is there any more data coming after this?
+            keepReading = !readResult.IsCompleted;
+        }
+    }
+
+    private QueueAndParseResult ParseAndQueuePacket(ReadOnlySequence<byte> sequence)
+    {
+        // Get the packet ID.
+        var reader = new SequenceReader<byte>(sequence);
+        if (!reader.TryReadVarInt(out var packetId, out _))
+            throw new("Could not parse packet ID");
+        
+        var (packet, parseResult) =  State switch
+        {
+            ConnectionState.Handshaking => ParseHandshakeStatePacket(packetId, ref reader),
+            ConnectionState.Status => ParseStatusStatePacket(packetId, ref reader),
+            ConnectionState.Login => ParseLoginStatePacket(packetId, ref reader),
+            ConnectionState.Play => ParsePlayStatePacket(packetId, ref reader),
+            _ => throw new ArgumentOutOfRangeException(nameof(State))
+        };
+
+        if (packet is null)
+            return parseResult;
+ 
+        if (_server.IncomingPacketsChannel.TryWrite(new(this, packet)))
+        {
+            _logger.LogDebug("[{IP}] [{State}] Packet with ID {PacketId} queued", Ip, State, packet.Id);
+            return parseResult;
+        }
+        
+        _logger.LogWarning("[{IP}] [{State}] Unable to write parsed packet (id: {PacketId}) to packet channel", Ip, State, packet.Id);
+        return QueueAndParseResult.CouldNotQueue;
+
+    }
+    
+
+    private (IServerBoundPacket? Packet, QueueAndParseResult Result) ParseHandshakeStatePacket(int packetId, ref SequenceReader<byte> reader)
     {
         switch (packetId)
         {
             case 0x00: // Handshake
-                var packet = ObjectPool<HandshakePacket>.Shared.Get();
-                await packet.ReadPacketAsync(payloadStream);
-                await packet.HandleAsync(_server, this);
-                ObjectPool<HandshakePacket>.Shared.Return(packet);
-                break;
+                if (!HandshakePacket.TryRentAndFill(ref reader, out var handshake)) 
+                    return (null, QueueAndParseResult.NeedMoreData);
+                
+                State = handshake?.NextState ?? State;
+                return (handshake, QueueAndParseResult.Ok);
 
             case 0xFE when ExpectLegacyPing:
-                _logger.LogInformation("[{IP}] [{State}] Received unsupported legacy ping packet", IP, State);
+                _logger.LogWarning("[{IP}] [{State}] Received unsupported legacy ping packet", Ip, State);
                 ExpectLegacyPing = false;
-                Dispose();
-                return;
+                return (null, QueueAndParseResult.InvalidPacket);
                 
             default:
-                await HandleInvalidPacket(packetId);
-                return;
+                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
+                return (null, QueueAndParseResult.InvalidPacket);
         }
     }
-    private async Task HandleStatusState(int packetId, MemoryStream payloadStream, CancellationToken cancelToken)
+    private (IServerBoundPacket? Packet, QueueAndParseResult Result) ParseStatusStatePacket(int packetId, ref SequenceReader<byte> reader)
     {
+        IServerBoundPacket? packet;
         switch (packetId)
         {
             case 0x00: // Status Request
-                var packet = ObjectPool<StatusResponsePacket>.Shared.Get();
-                packet.ServerStatus = _server.Status;
-                await packet.SerializeAsync(NetworkStream);
-                _logger.LogDebug("Send server status success");
-                break;
-            
-            
+                return StatusRequestPacket.TryRentAndFill(ref reader, out packet)
+                    ? (packet, QueueAndParseResult.Ok)
+                    : (null, QueueAndParseResult.NeedMoreData);
+
             case 0xFE when ExpectLegacyPing: // Legacy client server list ping.
                 // This can happen in in this state in the event of a malformed server list pong packet that has been sent to the client.
-                _logger.LogInformation("[{IP}] [{State}] Received unsupported legacy ping packet", IP, State);
                 ExpectLegacyPing = false;
-                Dispose();
-                return;
+                _logger.LogInformation("[{IP}] [{State}] Received unsupported legacy ping packet", Ip, State);
+                return (null, QueueAndParseResult.InvalidPacket);
             
             case 0x01: // Ping Request
+                return PingRequestPacket.TryRentAndFill(ref reader, out packet)
+                    ? (packet, QueueAndParseResult.Ok)
+                    : (null, QueueAndParseResult.NeedMoreData);
+            
             default:
                 ExpectLegacyPing = false;
-                await HandleInvalidPacket(packetId);
-                return;
+                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
+                return (null, QueueAndParseResult.InvalidPacket);
         } 
         
     }
-    private async Task HandleLoginState(int packetId, MemoryStream payloadStream, CancellationToken cancelToken)
+    private (IServerBoundPacket? Packet, QueueAndParseResult Result) ParseLoginStatePacket(int packetId, ref SequenceReader<byte> reader)
     {
         switch (packetId)
         {
             case 0x00: // Login Start
             case 0x01: // Encryption Response
             case 0x02: // Login Plugin Response
+                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not yet implemented", Ip, State, packetId);
+                return (null, QueueAndParseResult.InvalidPacket);
             default:
-                await HandleInvalidPacket(packetId);
-                return;
+                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
+                return (null, QueueAndParseResult.InvalidPacket);
         }    
 
     }
-    private async Task HandlePlayState(int packetId, MemoryStream payloadStream, CancellationToken cancelToken)
+    private (IServerBoundPacket? Packet, QueueAndParseResult Result) ParsePlayStatePacket(int packetId, ref SequenceReader<byte> reader)
     {
         switch (packetId)
         {
@@ -195,65 +252,16 @@ public sealed class ClientConnection
             case 0x30: // Teleport To Entity
             case 0x31: // Use Item On
             case 0x32: // Use Item
+                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not yet implemented", Ip, State, packetId);
+                return (null, QueueAndParseResult.InvalidPacket);
             default:
-                await HandleInvalidPacket(packetId);
-                return;
+                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
+                return (null, QueueAndParseResult.InvalidPacket);
         }
 
     }
-    private ValueTask HandleInvalidPacket(int packetId)
-    {
-        _logger.LogWarning("[{IP}] Packet ID {PacketId} not handled in {State} state. Closing connection", IP, packetId, State);
-        Dispose();
-        return ValueTask.CompletedTask;
-    }
-    private async Task<(int packetId, MemoryStream packetDataStream)> ReadPacketIntoMemory(
-        CancellationToken cancelToken)
-    {
-        cancelToken.ThrowIfCancellationRequested();
-        
-        // Get the size of the next packet.
-        var packetSize = (await NetworkStream.ReadVarIntAsync()).value;
-
-        if (packetSize == 0xFE && ExpectLegacyPing)
-        {
-            // Backwards compat with a legacy server ping. This packet is formatted differently.
-            _ = await NetworkStream.ReadUnsignedByteAsync(); // Always 0x01
-            return (0xFE, MemoryStreaming.Manager.GetStream());
-        }
-        
-        var (packetId, packetHeaderSize) = await NetworkStream.ReadVarIntAsync();
-        var payloadSize = packetSize - packetHeaderSize;
-
-        if (payloadSize == 0)
-            return (packetId, MemoryStreaming.Manager.GetStream());
-        
-            
-        // The rented array will be _at least_ payloadSize.
-        var buffer = ArrayPool<byte>.Shared.Rent(payloadSize);
-        try
-        {
-            // We only want to use the first payloadSize bytes.
-            var bufferAsMemory = buffer.AsMemory(0, payloadSize);
-
-            // Load the data in memory.
-            await NetworkStream.ReadExactlyAsync(bufferAsMemory, cancelToken);
-
-            // We wrap the buffer in a recyclable memory stream, making it easier to handle.
-            // Using a separate memory stream for this so we can first load all the data in memory at once for performance.
-            var payloadMemoryStream = MemoryStreaming.Manager.GetStream(buffer);
-            return (packetId, payloadMemoryStream);
-        }
-        finally
-        {
-            // We can return the buffer to the pool now. It will no longer be used by the memory stream.
-            ArrayPool<byte>.Shared.Return(buffer);
-        }
-    }
-
-
     public void Dispose()
     {
-        _tcp.Dispose();
+        Tcp.Dispose();
     }
 }

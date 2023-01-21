@@ -2,7 +2,7 @@
 using System.Buffers.Binary;
 using System.Text;
 
-namespace Beacon.Server.Net;
+namespace Beacon.Server.Utils;
 
 public static class StreamReadExtensions
 {
@@ -82,7 +82,7 @@ public static class StreamReadExtensions
         var r = buffer[0];
         
         Return(buffer);
-        return buffer[0];
+        return r;
     }
 
     public static (int value, int bytesRead) ReadVarInt(this Stream stream)
