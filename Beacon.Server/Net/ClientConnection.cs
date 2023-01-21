@@ -1,21 +1,21 @@
 ﻿using System.Buffers;
+using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
-using Beacon.Server.Logging;
 using Beacon.Server.Net.Packets;
 using Beacon.Server.Net.Packets.Exceptions;
 using Beacon.Server.Net.Packets.Handshaking.Serverbound;
 using Beacon.Server.Net.Packets.Status.ServerBound;
 using Beacon.Server.Utils;
+using Beacon.Server.Utils.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace Beacon.Server.Net;
 
-public sealed class ClientConnection
+public sealed partial class ClientConnection
 {
     private readonly BeaconServer _server;
-    private readonly ILogger _logger;
     
     public TcpClient Tcp { get; }
 
@@ -24,8 +24,6 @@ public sealed class ClientConnection
     public ConnectionState State { get; internal set; }
     public bool ExpectLegacyPing { get; set; }
     public NetworkStream NetworkStream => Tcp.GetStream();
-
-    
 
     public ClientConnection(TcpClient tcp, BeaconServer server, ILogger logger)
     {
@@ -39,9 +37,9 @@ public sealed class ClientConnection
     public async Task AcceptPacketsAsync(CancellationToken cancelToken)
     {
         var reader = PipeReader.Create(NetworkStream);
-        _logger.LogDebug("[{IP}] [{State}] Start accepting packets", Ip, State);
+        LogStartAcceptingPackets(Ip, State);
         await ReadPipeAsync(reader);
-        _logger.LogDebug("[{IP}] [{State}] Stopped accepting packets", Ip, State);
+        LogStopAcceptingPackets(Ip, State);
     }
     
     private async Task ReadPipeAsync(PipeReader pipeReader)
@@ -52,7 +50,7 @@ public sealed class ClientConnection
             var readResult = await pipeReader.ReadAsync();
             if (readResult.IsCanceled)
             {
-                _logger.LogPipeCanceledFromWriter(Ip, State);
+                LogPipeCanceledFromWriter(Ip, State);
                 return;
             }
             
@@ -115,21 +113,20 @@ public sealed class ClientConnection
             ConnectionState.Status => ParseStatusStatePacket(packetId, ref reader),
             ConnectionState.Login => ParseLoginStatePacket(packetId, ref reader),
             ConnectionState.Play => ParsePlayStatePacket(packetId, ref reader),
-            _ => throw new ArgumentOutOfRangeException(nameof(State))
+            _ => throw new InvalidOperationException(nameof(State))
         };
 
         if (packet is null)
             return parseResult;
  
-        if (_server.IncomingPacketsChannel.TryWrite(new(this, packet)))
+        if (_server.IncomingPacketsChannel.TryWrite(new(this, packet, DateTime.Now)))
         {
-            _logger.LogDebug("[{IP}] [{State}] Packet with ID {PacketId} queued", Ip, State, packet.Id);
+            LogPacketQueued(Ip, State, packet.Id);
             return parseResult;
         }
-        
-        _logger.LogWarning("[{IP}] [{State}] Unable to write parsed packet (id: {PacketId}) to packet channel", Ip, State, packet.Id);
-        return QueueAndParseResult.CouldNotQueue;
 
+        LogCouldNotQueuePacket(Ip, State, packetId);
+        return QueueAndParseResult.CouldNotQueue;
     }
     
 
@@ -145,12 +142,12 @@ public sealed class ClientConnection
                 return (handshake, QueueAndParseResult.Ok);
 
             case 0xFE when ExpectLegacyPing:
-                _logger.LogWarning("[{IP}] [{State}] Received unsupported legacy ping packet", Ip, State);
+                LogUnsupportedLegacyPing(Ip, State);
                 ExpectLegacyPing = false;
                 return (null, QueueAndParseResult.InvalidPacket);
                 
             default:
-                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
+                LogInvalidPacket(Ip, State, packetId);
                 return (null, QueueAndParseResult.InvalidPacket);
         }
     }
@@ -167,17 +164,24 @@ public sealed class ClientConnection
             case 0xFE when ExpectLegacyPing: // Legacy client server list ping.
                 // This can happen in in this state in the event of a malformed server list pong packet that has been sent to the client.
                 ExpectLegacyPing = false;
-                _logger.LogInformation("[{IP}] [{State}] Received unsupported legacy ping packet", Ip, State);
+                LogUnsupportedLegacyPing(Ip, State);
                 return (null, QueueAndParseResult.InvalidPacket);
             
             case 0x01: // Ping Request
-                return PingRequestPacket.TryRentAndFill(ref reader, out packet)
-                    ? (packet, QueueAndParseResult.Ok)
-                    : (null, QueueAndParseResult.NeedMoreData);
-            
+                if (!PingRequestPacket.TryRentAndFill(ref reader, out var prp) || prp is null)
+                    return (null, QueueAndParseResult.NeedMoreData);
+                
+                // Fast track for ping packet.
+                const int packetLength = 9; 
+                NetworkStream.WriteVarInt(packetLength);
+                NetworkStream.WriteVarInt(prp.Id); 
+                NetworkStream.WriteLong(prp.Payload);
+                NetworkStream.Flush();
+                return (null, QueueAndParseResult.Ok);
+                
             default:
                 ExpectLegacyPing = false;
-                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
+                LogInvalidPacket(Ip, State, packetId);
                 return (null, QueueAndParseResult.InvalidPacket);
         } 
         
@@ -189,10 +193,10 @@ public sealed class ClientConnection
             case 0x00: // Login Start
             case 0x01: // Encryption Response
             case 0x02: // Login Plugin Response
-                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not yet implemented", Ip, State, packetId);
+                LogPacketNotImplemented(Ip, State, packetId);
                 return (null, QueueAndParseResult.InvalidPacket);
             default:
-                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
+                LogInvalidPacket(Ip, State, packetId);
                 return (null, QueueAndParseResult.InvalidPacket);
         }    
 
@@ -252,10 +256,10 @@ public sealed class ClientConnection
             case 0x30: // Teleport To Entity
             case 0x31: // Use Item On
             case 0x32: // Use Item
-                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not yet implemented", Ip, State, packetId);
+                LogPacketNotImplemented(Ip, State, packetId);
                 return (null, QueueAndParseResult.InvalidPacket);
             default:
-                _logger.LogWarning("[{IP}] [{State}] Packet Id {PacketId} is not valid/implemented in this state", Ip, State, packetId);
+                LogInvalidPacket(Ip, State, packetId);
                 return (null, QueueAndParseResult.InvalidPacket);
         }
 

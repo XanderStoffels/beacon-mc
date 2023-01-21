@@ -2,33 +2,33 @@
 using Beacon.API;
 using Beacon.Server.Net;
 using Beacon.Server.Net.Packets;
+using Beacon.Server.Net.Packets.Status.ServerBound;
 using Beacon.Server.Utils;
 using Microsoft.Extensions.Logging;
 
 namespace Beacon.Server;
 
-public class BeaconServer : IServer
+public sealed partial class BeaconServer : IServer
 {
     private readonly ILoggerFactory _loggerFactory;
     private readonly ServerConfiguration _configuration;
     private readonly ClientReceiver _clientReceiver;
-    private readonly Channel<QueuedServerboundPacket> _incomingPacketChannel;
+    private readonly Channel<QueuedServerBoundPacket> _incomingPacketChannel;
     private readonly CancellationTokenSource _cancelSource;
     
-    public ILogger Logger { get; }
     public ServerStatus Status { get; }
     
     public CancellationToken CancelToken => _cancelSource.Token;
-    public ChannelWriter<QueuedServerboundPacket> IncomingPacketsChannel => _incomingPacketChannel.Writer;
+    public ChannelWriter<QueuedServerBoundPacket> IncomingPacketsChannel => _incomingPacketChannel.Writer;
 
     public BeaconServer(ILoggerFactory loggerFactory, ServerConfiguration configuration)
     {
-        Logger = loggerFactory.CreateLogger("Server");
+        _logger = loggerFactory.CreateLogger("Server");
         _cancelSource = new();
         _loggerFactory = loggerFactory;
         _configuration = configuration;
-        _clientReceiver = new(configuration.Port, 30, Logger);
-        _incomingPacketChannel = Channel.CreateUnbounded<QueuedServerboundPacket>(new()
+        _clientReceiver = new(configuration.Port, 30, _logger);
+        _incomingPacketChannel = Channel.CreateUnbounded<QueuedServerBoundPacket>(new()
         {
             SingleReader = true
         });
@@ -63,7 +63,7 @@ public class BeaconServer : IServer
 
     public Task StartupAsync(CancellationToken cancelToken)
     {
-        Logger.LogInformation("Starting Beacon");
+        _logger.LogInformation("Starting Beacon");
         
         // Propagate the external cancellation to the server's cancellation token source.
         cancelToken.Register(_cancelSource.Cancel);
@@ -98,7 +98,7 @@ public class BeaconServer : IServer
         while (!cancelToken.IsCancellationRequested)
         {
             var timeLeft = await timer.WaitForNextTickAsync();
-            if (timeLeft < 0) Logger.LogWarning("Can not keep up! ({Time}ms behind)", -timeLeft);
+            if (timeLeft < 0) _logger.LogWarning("Can not keep up! ({Time}ms behind)", -timeLeft);
             await Update();
         }
 
@@ -111,18 +111,14 @@ public class BeaconServer : IServer
 
     private async Task HandlePackets()
     {
-        while (_incomingPacketChannel
-               .Reader
-               .TryRead(out var message))
+        var reader = _incomingPacketChannel.Reader;
+        while (reader.TryRead(out var message))
         {
             await message.Packet.HandleAsync(this, message.Connection);
             message.Dispose();
-            
-            Logger.LogDebug("[{IP}] [{State}] Handled packet with ID {PacketId}", 
-                message.Connection.Ip, 
-                message.Connection.State, 
-                message.Packet.Id);
-            
+
+            var time = DateTime.Now - message.QueuedAt;
+            LogPacketHandled(message.Connection.Ip, message.Connection.State, message.Packet.Id, time.Milliseconds);
         }
     }
 
@@ -130,8 +126,8 @@ public class BeaconServer : IServer
     {
         if (!_clientReceiver.ClientQueue.TryRead(out var client)) return;
         if (!client.Connected) return; // The client might have disconnected while in queue.
-        var connection = new ClientConnection(client, this, Logger);
-        Logger.LogDebug("[{IP}] Accepted connection", connection.RemoteEndPoint?.ToString());
+        var connection = new ClientConnection(client, this, _logger);
+        _logger.LogDebug("[{IP}] Accepted connection", connection.RemoteEndPoint?.ToString());
 
         try
         {

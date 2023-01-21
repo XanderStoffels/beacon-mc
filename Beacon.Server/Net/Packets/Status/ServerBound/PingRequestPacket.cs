@@ -16,9 +16,11 @@ public class PingRequestPacket : IServerBoundPacket
         var response = ObjectPool<PingResponsePacket>.Shared.Get();
         response.Payload = Payload;
         await response.SerializeAsync(client.NetworkStream);
+        ObjectPool<PingResponsePacket>.Shared.Return(response);
     }
     
-    public static bool TryRentAndFill(ref SequenceReader<byte> reader, out IServerBoundPacket? packet)
+    
+    public static bool TryRentAndFill(ref SequenceReader<byte> reader, out PingRequestPacket? packet)
     {
         packet = default;
         if (!reader.TryReadBigEndian(out long payload))
