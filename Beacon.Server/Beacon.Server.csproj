@@ -46,6 +46,7 @@
     <ItemGroup>
       <Folder Include="Net\Packets\Login" />
       <Folder Include="Net\Packets\Play" />
+      <Folder Include="Plugins" />
     </ItemGroup>
 
 </Project>
