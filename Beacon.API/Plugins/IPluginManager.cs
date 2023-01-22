@@ -1,6 +1,10 @@
-﻿namespace Beacon.API.Plugins;
+﻿using Beacon.API.Events;
+
+namespace Beacon.API.Plugins;
 
 public interface IPluginManager
 {
-    Task FireEventAsync(CancellationToken cancelToken);
+    TService? GetService<TService>();
+    Task FireEventAsync<TEvent>(TEvent e, CancellationToken cancelToken)
+        where TEvent : MinecraftEvent;
 }

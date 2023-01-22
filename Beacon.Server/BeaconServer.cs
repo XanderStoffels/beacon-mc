@@ -17,7 +17,6 @@ public sealed partial class BeaconServer : IServer
     private readonly CancellationTokenSource _cancelSource;
     
     public ServerStatus Status { get; }
-    
     public CancellationToken CancelToken => _cancelSource.Token;
     public ChannelWriter<QueuedServerBoundPacket> IncomingPacketsChannel => _incomingPacketChannel.Writer;
 
@@ -33,32 +32,7 @@ public sealed partial class BeaconServer : IServer
             SingleReader = true
         });
 
-        Status = new ServerStatus
-        {
-            Version = new ServerVersionModel
-            {
-                Name = "1.19.3",
-                Protocol = 761
-            },
-            Players = new OnlinePlayersModel
-            {
-                Max = 10,
-                Online = 1,
-                Sample = new[]
-                {
-                    new OnlinePlayerModel
-                    {
-                        Name = "Notch",
-                        Id = new Guid().ToString()
-                    }
-                }
-            },
-            Description = new DescriptionModel
-            {
-                Text = "A Beacon Server!"
-            },
-            Favicon = Resources.ServerIcon
-        };
+        Status = ServerStatus.Default;
     }
 
     public Task StartupAsync(CancellationToken cancelToken)
@@ -68,6 +42,9 @@ public sealed partial class BeaconServer : IServer
         // Propagate the external cancellation to the server's cancellation token source.
         cancelToken.Register(_cancelSource.Cancel);
         
+        // Load plugins.
+        
+        
         // Start server tasks.
         var tcpTask = _clientReceiver.AcceptClientsAsync(cancelToken);
         var loopTask = DoGameLoopAsync(cancelToken);
@@ -75,7 +52,6 @@ public sealed partial class BeaconServer : IServer
         var _ = Task.WhenAll(tcpTask, loopTask);
         return Task.CompletedTask;
     }
-
     public void WaitForCompletion()
     {
          _cancelSource.Token.WaitHandle.WaitOne();
@@ -85,7 +61,6 @@ public sealed partial class BeaconServer : IServer
         Console.WriteLine(command);
         return ValueTask.CompletedTask;
     }
-    
     public void SignalShutdown()
     {
         _cancelSource.Cancel();
@@ -108,7 +83,6 @@ public sealed partial class BeaconServer : IServer
            await HandlePackets();
         }
     }
-
     private async Task HandlePackets()
     {
         var reader = _incomingPacketChannel.Reader;
@@ -121,7 +95,6 @@ public sealed partial class BeaconServer : IServer
             LogPacketHandled(message.Connection.Ip, message.Connection.State, message.Packet.Id, time.Milliseconds);
         }
     }
-
     private void HandleNewConnection(CancellationToken cancelToken)
     {
         if (!_clientReceiver.ClientQueue.TryRead(out var client)) return;

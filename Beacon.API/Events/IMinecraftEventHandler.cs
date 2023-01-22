@@ -1,7 +1,8 @@
 ﻿namespace Beacon.API.Events;
 
-public interface IMinecraftEventHandler<TEvent>
+public interface IMinecraftEventHandler<in TEvent>
     where TEvent : MinecraftEvent
 {
-    public Task Handle(TEvent e, CancellationToken cancelToken);
+    public Priority Priority { get; } 
+    public Task HandleAsync(TEvent e, CancellationToken cancelToken);
 }
