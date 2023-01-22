@@ -21,7 +21,7 @@ public interface IServiceRegistration
     /// <typeparam name="TInterface"></typeparam>
     /// <typeparam name="TImplementation"></typeparam>
     /// <returns>The service will have be registered as a singleton.</returns>
-    IServiceRegistration RegisterPluginService<TInterface, TImplementation>()
+    IServiceRegistration RegisterSharedService<TInterface, TImplementation>()
         where TInterface : class
         where TImplementation : class, TInterface;
     
