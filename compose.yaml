@@ -1,0 +1,6 @@
+﻿services:
+  beacon:
+    image: beacon
+    build:
+      context: .
+      dockerfile: Beacon/Dockerfile
