@@ -18,6 +18,6 @@ public sealed class StatusRequest : IServerBoundPacket
     public void Handle(Server server, Connection connection)
     {
         var res = new StatusResponse(connection);
-        server.EnqueuePacket(res, connection);
+        connection.EnqueuePacket(res);
     }
 }

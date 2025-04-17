@@ -16,12 +16,21 @@ public sealed class Connection : IDisposable
     public TcpClient Tcp { get; private set; }
 
     private readonly Server _server;
+    private readonly Channel<IClientBoundPacket> _clientBoundPackets;
+    private readonly ILogger<Connection> _logger;
+
     private bool _shouldClose;
     private bool _expectLoginAck;
-    
-    public Connection(Server server, TcpClient client)
+
+    public Connection(Server server, TcpClient client, ILogger<Connection> logger)
     {
         _server = server;
+        _clientBoundPackets = Channel.CreateUnbounded<IClientBoundPacket>(new UnboundedChannelOptions()
+        {
+            SingleReader = true,
+            SingleWriter = false
+        });
+        _logger = logger;
         Tcp  = client;
         
         if (!Tcp.GetStream().CanRead)
@@ -31,12 +40,25 @@ public sealed class Connection : IDisposable
             throw new ArgumentException("TcpClient is not writable");
     }
 
+    public async Task SendAndReceivePackets(ChannelWriter<QueuedServerBoundPacket> serverPacketQueue, CancellationToken cancelToken)
+    {
+        await Task.WhenAll(
+            ProcessServerBoundPackets(serverPacketQueue, cancelToken),
+            ProcessClientBoundPackets(cancelToken)
+        );
+    }
+    
+    public bool EnqueuePacket(IClientBoundPacket packet)
+    {
+        return _clientBoundPackets.Writer.TryWrite(packet);
+    }
+    
     /// <summary>
     /// Starts accepting packets, putting them on the queue.
     /// </summary>
     /// <param name="packetQueue">The <see cref="ChannelWriter{IServerBoundPacket}"/> to put the packets on.</param>
     /// <param name="cancelToken"></param>
-    public async Task AcceptPacketsAsync(ChannelWriter<QueuedServerBoundPacket> packetQueue, CancellationToken cancelToken)
+    private async Task ProcessServerBoundPackets(ChannelWriter<QueuedServerBoundPacket> packetQueue, CancellationToken cancelToken)
     {
         var stream = Tcp.GetStream();
         
@@ -70,6 +92,39 @@ public sealed class Connection : IDisposable
             if (result.IsCompleted)
                 break;
         }
+    }
+
+    private async Task ProcessClientBoundPackets(CancellationToken cancelToken)
+    {
+        const int twoMegabytes = 2 * 1024 * 1024;
+        
+        // The prefix buffer is used to write the VarInt length of the payload. Max length is 5 bytes.
+        var stream = Tcp.GetStream();
+        Memory<byte> prefixBuffer = new byte[5];
+        Memory<byte> buffer = new byte[twoMegabytes];
+        
+        await foreach (var packet in _clientBoundPackets.Reader.ReadAllAsync(cancelToken))
+        {
+            try
+            { 
+                // The payload is all the bytes after the initial VarInt.
+                // Before writing the payload, we need to write the VarInt length of the payload.
+                if (!packet.TryWritePayloadTo(buffer.Span, out var payloadLength))
+                {
+                    _logger.LogWarning("Failed to write payload of {PacketId} to buffer", packet.GetType().Name);
+                    continue;
+                }
+                VarInt.TryWrite(prefixBuffer.Span, payloadLength, out var prefixLength);
+                await stream.WriteAsync(prefixBuffer[..prefixLength], CancellationToken.None);
+                await stream.WriteAsync(buffer[..payloadLength], CancellationToken.None);
+                await stream.FlushAsync(CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing server bound packet");
+            }
+        }
+        
     }
 
     private bool TryReadPacket(ref ReadOnlySequence<byte> buffer, out IServerBoundPacket? packet)
