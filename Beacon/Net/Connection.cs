@@ -121,9 +121,9 @@ public sealed class Connection : IDisposable
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing client bound packet");
+                _logger.LogError(ex, "Error processing server bound packet");
+            }
         }
-        
     }
 
     private bool TryReadPacket(ref ReadOnlySequence<byte> buffer, out IServerBoundPacket? packet)
