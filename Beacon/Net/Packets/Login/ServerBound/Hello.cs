@@ -26,11 +26,11 @@ public class Hello : IServerBoundPacket, IPipeReadable<Hello>, IDisposable
     
     public void Handle(Server server, Connection connection)
     {
-        server.EnqueuePacket(new LoginFinished
+        connection.EnqueuePacket(new LoginFinished
         {
             Username = Name,
             Uuid = PlayerUuid
-        }, connection);
+        });
     }
 
     public static Hello Deserialize(ref SequenceReader<byte> reader)
