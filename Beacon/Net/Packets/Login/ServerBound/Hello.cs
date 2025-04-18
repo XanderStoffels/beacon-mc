@@ -1,4 +1,5 @@
 using System.Buffers;
+using Beacon.Core;
 using Beacon.Net.Packets.Login.ClientBound;
 using Beacon.Util;
 
@@ -22,10 +23,12 @@ public class Hello : IServerBoundPacket, IPipeReadable<Hello>, IDisposable
     /// The UUID of the player logging in. Unused by the vanilla server.
     /// </summary>
     public Guid PlayerUuid { get; set; } = Guid.Empty;
-    private bool _isRented;
+    private bool _isThisRented;
     
     public void Handle(Server server, Connection connection)
     {
+        // TODO: Get LoginFinished from ObjectPool.
+        connection.Player = new Player(PlayerUuid, Name);
         connection.EnqueuePacket(new LoginFinished
         {
             Username = Name,
@@ -39,7 +42,7 @@ public class Hello : IServerBoundPacket, IPipeReadable<Hello>, IDisposable
         reader.TryReadUuid(out var playerUuid);
         
         var hello = ObjectPool<Hello>.Shared.Get();
-        hello._isRented = true;
+        hello._isThisRented = true;
         hello.Name = username;
         hello.PlayerUuid = playerUuid;
         
@@ -52,8 +55,8 @@ public class Hello : IServerBoundPacket, IPipeReadable<Hello>, IDisposable
 
     public void Dispose()
     {
-        if (!_isRented) return;
+        if (!_isThisRented) return;
         ObjectPool<Hello>.Shared.Return(this);
-        _isRented = false;
+        _isThisRented = false;
     }
 }

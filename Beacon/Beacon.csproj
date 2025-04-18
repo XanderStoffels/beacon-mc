@@ -18,4 +18,12 @@
         <Link>.dockerignore</Link>
       </Content>
     </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Beacon.Api\Beacon.Api.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Enums\" />
+    </ItemGroup>
 </Project>

@@ -10,6 +10,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beacon.Tests", "Beacon.Tests\Beacon.Tests.csproj", "{23A29FD0-7A12-4AA2-A6B4-2AD2D512D1A6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beacon.Api", "Beacon.Api\Beacon.Api.csproj", "{229F65C8-1B59-4AB3-9B1F-E91C697B3D9F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beacon.DemoPlugin", "Beacon.DemoPlugin\Beacon.DemoPlugin.csproj", "{124722C9-6DEC-47B8-871B-36ECA03AABD4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +28,13 @@ Global
 		{23A29FD0-7A12-4AA2-A6B4-2AD2D512D1A6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{23A29FD0-7A12-4AA2-A6B4-2AD2D512D1A6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{23A29FD0-7A12-4AA2-A6B4-2AD2D512D1A6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{229F65C8-1B59-4AB3-9B1F-E91C697B3D9F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{229F65C8-1B59-4AB3-9B1F-E91C697B3D9F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{229F65C8-1B59-4AB3-9B1F-E91C697B3D9F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{229F65C8-1B59-4AB3-9B1F-E91C697B3D9F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{124722C9-6DEC-47B8-871B-36ECA03AABD4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{124722C9-6DEC-47B8-871B-36ECA03AABD4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{124722C9-6DEC-47B8-871B-36ECA03AABD4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{124722C9-6DEC-47B8-871B-36ECA03AABD4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

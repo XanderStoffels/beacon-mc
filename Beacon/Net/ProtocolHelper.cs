@@ -10,36 +10,6 @@ public static class ProtocolHelper
     private const int ContinueBit = 0x80;
     
     /// <summary>
-    /// Read a VarInt from the given Span.
-    /// </summary>
-    /// <param name="buffer"></param>
-    /// <param name="bytesRead">How many bytes from the span make up the read VarInt.</param>
-    /// <returns></returns>
-    /// <exception cref="InvalidOperationException"></exception>
-    public static int ReadVarInt(ReadOnlySpan<byte> buffer, out byte bytesRead)
-    {
-        if (buffer.Length == 0)
-            throw new InvalidOperationException("Buffer is empty");
-
-        var value = 0;
-        byte position = 0;
-
-        while (true)
-        {
-            var currentByte = buffer[position];
-            value |= (currentByte & SegmentBits) << position * 7;
-            position++;
-
-            // Check if the most significant bit is set. If so, the next byte is part of the VarInt.
-            if ((currentByte & ContinueBit) == 0) break;
-            if (position > 5) throw new InvalidOperationException("VarInt is too long");
-        }
-
-        bytesRead = position;
-        return value;
-    }
-    
-    /// <summary>
     /// Read a VarLong from the given Span.
     /// </summary>
     /// <param name="buffer"></param>
@@ -66,6 +36,11 @@ public static class ProtocolHelper
 
         bytesRead = position;
         return result;
+    }
+
+    public static bool TryReadVarInt(this ref SequenceReader<byte> reader, out int result)
+    {
+        return TryReadVarInt(ref reader, out result, out _);
     }
     
     /// <summary>
@@ -147,6 +122,18 @@ public static class ProtocolHelper
         value = Encoding.UTF8.GetString(stringBlock);
         reader.Advance(length);
         return true;
+    }
+    
+    /// <summary>
+    /// Alias for <see cref="TryReadString(ref SequenceReader{byte}, out string)"/>, since Identifiers are just strings in the Minecraft Protocol.
+    /// Technically, they are limited to a size of 32767, but this is not enforced by Beacon while reading as of now.
+    /// </summary>
+    /// <param name="reader"></param>
+    /// <param name="value"></param>
+    /// <returns></returns>
+    public static bool TryReadIdentifier(this ref SequenceReader<byte> reader, out string value)
+    {
+        return TryReadString(ref reader, out value);
     }
 
     /// <summary>

@@ -4,6 +4,40 @@ public static class VarInt
 {
     public const int MinSize = 1;
     public const int MaxSize = 5;
+    private const int SegmentBits = 0x7F;
+    private const int ContinueBit = 0x80;
+    
+    /// <summary>
+    /// Try reading the next VarInt as defined in the Minecraft Protocol.
+    /// </summary>
+    /// <param name="buffer"></param>
+    /// <param name="value">The resulting VarInt</param>
+    /// <param name="bytesRead">How many bytes from the span make up the read VarInt.</param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
+    public static bool TryRead(ReadOnlySpan<byte> buffer, out int value, out byte bytesRead)
+    {
+        value = 0;
+        bytesRead = 0;
+        if (buffer.Length < MinSize) return false;
+        
+        while (true)
+        {
+            var currentByte = buffer[bytesRead];
+            value |= (currentByte & SegmentBits) << bytesRead * 7;
+            bytesRead++;
+
+            // Check if the most significant bit is set. If so, the next byte is part of the VarInt.
+            if ((currentByte & ContinueBit) == 0) break;
+            if (bytesRead <= MaxSize) continue;
+            
+            // If we reach this point, the VarInt is too long.
+            value = 0;
+            return false;
+        }
+        
+        return true;
+    }
     
     /// <summary>
     /// Get the size of a VarInt in bytes.

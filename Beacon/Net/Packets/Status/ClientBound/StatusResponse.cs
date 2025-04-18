@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Beacon.Api;
 using Beacon.Util;
 
 namespace Beacon.Net.Packets.Status.ClientBound;
@@ -24,13 +25,14 @@ public sealed class StatusResponse : IClientBoundPacket
         bytesWritten = 0;
         
         var serverStatus = new ServerStatus(
-            new Version("1.21.5", 770),
-            new Players(100, 1, [new Sample("Notch", Guid.Empty.ToString())]),
-            // Powered by Beacon, beacon in cyan color.
-            new Description("§fPowered by §6Beacon§f!"),
-            //Icons.Beacon, 
+            "1.21.5",
+            770,
+            100,
+            1,
+            "§fPowered by §6Beacon§f!",
             string.Empty,
-            false
+            false,
+            new ServerStatus.StatusPlayerSample("§6Notch", "069a79f4-44e9-4726-a5be-fca90e38aaf5")
         );
         
         var jsonResponse = JsonSerializer.Serialize(serverStatus, JsonOptions);

@@ -63,7 +63,7 @@ public class  Server : BackgroundService
                 }
             }
             Thread.Sleep(50);
-            Console.WriteLine(counter);
+        //    Console.WriteLine(counter);
         }
     }
     

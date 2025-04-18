@@ -1,8 +1,12 @@
 using System.Buffers;
+using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net.Sockets;
 using System.Threading.Channels;
+using Beacon.Core;
 using Beacon.Net.Packets;
+using Beacon.Net.Packets.Configuration.ClientBound;
+using Beacon.Net.Packets.Configuration.ServerBound;
 using Beacon.Net.Packets.Handshaking.ServerBound;
 using Beacon.Net.Packets.Login.ServerBound;
 using Beacon.Net.Packets.Status;
@@ -10,10 +14,12 @@ using Beacon.Net.Packets.Status.ServerBound;
 
 namespace Beacon.Net;
 
+[DebuggerDisplay("{State}, {Player?.Username} {Tcp.Client?.RemoteEndPoint}")]
 public sealed class Connection : IDisposable
 {
     public ConnectionState State { get; private set; } = ConnectionState.Handshaking;
     public TcpClient Tcp { get; private set; }
+    public Player? Player { get; set; }
 
     private readonly Server _server;
     private readonly Channel<IClientBoundPacket> _clientBoundPackets;
@@ -21,7 +27,8 @@ public sealed class Connection : IDisposable
 
     private bool _shouldClose;
     private bool _expectLoginAck;
-
+    private bool _expectConfigurationAck;
+    
     public Connection(Server server, TcpClient client, ILogger<Connection> logger)
     {
         _server = server;
@@ -42,14 +49,36 @@ public sealed class Connection : IDisposable
 
     public async Task SendAndReceivePackets(ChannelWriter<QueuedServerBoundPacket> serverPacketQueue, CancellationToken cancelToken)
     {
-        await Task.WhenAll(
-            ProcessServerBoundPackets(serverPacketQueue, cancelToken),
-            ProcessClientBoundPackets(cancelToken)
+        var cancelSource = CancellationTokenSource.CreateLinkedTokenSource(cancelToken);
+        var processInbound = ProcessServerBoundPackets(serverPacketQueue, cancelSource.Token);
+        var processOutbound = ProcessClientBoundPackets(cancelSource.Token);
+        
+        await Task.WhenAny(
+            processInbound,
+            processOutbound
         );
+        
+        // Check why the task completed.
+        if (processInbound.IsFaulted)
+        {
+            _logger.LogError(processInbound.Exception, "Error processing inbound packets");
+            _shouldClose = true;
+        }
+        
+        if (processOutbound.IsFaulted)
+        {
+            _logger.LogError(processOutbound.Exception, "Error processing outbound packets");
+            _shouldClose = true;
+        }
+
+        await cancelSource.CancelAsync();
     }
     
     public bool EnqueuePacket(IClientBoundPacket packet)
     {
+        if (packet is FinishConfiguration)
+            _expectConfigurationAck = true;
+        
         return _clientBoundPackets.Writer.TryWrite(packet);
     }
     
@@ -105,23 +134,27 @@ public sealed class Connection : IDisposable
         
         await foreach (var packet in _clientBoundPackets.Reader.ReadAllAsync(cancelToken))
         {
+            if (_shouldClose || cancelToken.IsCancellationRequested)
+                return;
+            
+            // The payload is all the bytes after the initial VarInt.
+            // Before writing the payload, we need to write the VarInt length of the payload.
+            if (!packet.TryWritePayloadTo(buffer.Span, out var payloadLength))
+            {
+                _logger.LogWarning("Failed to write payload of {PacketId} to buffer", packet.GetType().Name);
+                continue;
+            }
+            
+            VarInt.TryWrite(prefixBuffer.Span, payloadLength, out var prefixLength);
             try
-            { 
-                // The payload is all the bytes after the initial VarInt.
-                // Before writing the payload, we need to write the VarInt length of the payload.
-                if (!packet.TryWritePayloadTo(buffer.Span, out var payloadLength))
-                {
-                    _logger.LogWarning("Failed to write payload of {PacketId} to buffer", packet.GetType().Name);
-                    continue;
-                }
-                VarInt.TryWrite(prefixBuffer.Span, payloadLength, out var prefixLength);
+            {  
                 await stream.WriteAsync(prefixBuffer[..prefixLength], CancellationToken.None);
                 await stream.WriteAsync(buffer[..payloadLength], CancellationToken.None);
                 await stream.FlushAsync(CancellationToken.None);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing server bound packet");
+                _logger.LogError(ex, "Error writing a client bound packet {PacketName} to the stream", packet.GetType().Name);
             }
         }
     }
@@ -175,8 +208,9 @@ public sealed class Connection : IDisposable
                 return ParseStatusPacket(ref reader, packetId);
             case ConnectionState.Login:
                 return ParseLoginPacket(ref reader, packetId);
-            case ConnectionState.Transfer:
             case ConnectionState.Configuration:
+                return ParseConfigurationPacket(ref reader, packetId);
+            case ConnectionState.Transfer:
             case ConnectionState.Play:
             default:
                 throw new NotImplementedException($"State {State} is not implemented");
@@ -191,6 +225,10 @@ public sealed class Connection : IDisposable
             case Handshake.PacketId:
                 var handshake = Handshake.Deserialize(ref reader);
                 State = (ConnectionState)handshake.NextState;
+                
+                // Send a finish configuration packet to skip the configuration phase.
+                var finishConfiguration = new FinishConfiguration();
+                EnqueuePacket(finishConfiguration);
                 return null;
             
             case 0xFE:
@@ -203,7 +241,6 @@ public sealed class Connection : IDisposable
         
         throw new NotImplementedException($"Parsing packet id {packetId} for state Handshaking is not implemented");
     }
-
     private StatusRequest? ParseStatusPacket(ref SequenceReader<byte> reader, int packetId)
     {
         switch (packetId)
@@ -222,7 +259,6 @@ public sealed class Connection : IDisposable
         
         throw new NotImplementedException($"Parsing packet id {packetId} for state Status is not implemented");
     }
-
     private IServerBoundPacket? ParseLoginPacket(ref SequenceReader<byte> reader, int packetId)
     {
         switch (packetId)
@@ -241,6 +277,29 @@ public sealed class Connection : IDisposable
                 return null;
         }
         throw new NotImplementedException($"Parsing packet id {packetId} for state Login is not implemented");
+    }
+    private IServerBoundPacket? ParseConfigurationPacket(ref SequenceReader<byte> reader, int packetId)
+    {
+        switch (packetId)
+        {
+            case ClientInformation.PacketId:
+                return ClientInformation.Deserialize(ref reader);
+            
+            case CustomPayloadFromClient.PacketId:
+                return CustomPayloadFromClient.Deserialize(ref reader);
+            
+            case AckFinishConfiguration.PacketId:
+                if (!_expectConfigurationAck)
+                {
+                    _logger.LogWarning($"Received configuration ack, but we didn't ask for it.");
+                    _shouldClose = true;
+                    return null;
+                }
+                State = ConnectionState.Play;
+                return null;
+        }
+        
+        throw new NotImplementedException($"Parsing packet id {packetId} for state Configuration is not implemented");
     }
 
     public void Dispose()
