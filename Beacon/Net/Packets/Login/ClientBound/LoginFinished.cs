@@ -5,7 +5,7 @@ namespace Beacon.Net.Packets.Login.ClientBound;
 /// <summary>
 /// Indicates that the login process was finished successfully.
 /// </summary>
-public class LoginFinished : IClientBoundPacket
+public class LoginFinished : Rentable<LoginFinished>, IClientBoundPacket
 {
     public const int PacketId = 0x02;
     public Guid Uuid { get; set; }
@@ -13,7 +13,7 @@ public class LoginFinished : IClientBoundPacket
     
     // TODO: This packet is unfinished. It is missing some properties not used in offline mode.
     
-    public bool TryWritePayloadTo(Span<byte> buffer, out int bytesWritten)
+    public bool SerializePayload(Span<byte> buffer, out int bytesWritten)
     {
         var writer = new PayloadWriter(buffer, PacketId);
         writer.WriteUuid(Uuid);

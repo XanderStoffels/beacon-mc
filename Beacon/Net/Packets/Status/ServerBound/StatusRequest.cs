@@ -1,3 +1,4 @@
+using System.Buffers;
 using Beacon.Net.Packets.Status.ClientBound;
 
 namespace Beacon.Net.Packets.Status.ServerBound;
@@ -17,7 +18,12 @@ public sealed class StatusRequest : IServerBoundPacket
     
     public void Handle(Server server, Connection connection)
     {
-        var res = new StatusResponse(connection);
+        var res = StatusResponse.Rent();
         connection.EnqueuePacket(res);
+    }
+
+    public bool DeserializePayload(ref SequenceReader<byte> reader)
+    {
+        throw new NotImplementedException();
     }
 }

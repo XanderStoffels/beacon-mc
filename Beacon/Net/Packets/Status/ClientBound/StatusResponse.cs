@@ -5,23 +5,18 @@ using Beacon.Util;
 
 namespace Beacon.Net.Packets.Status.ClientBound;
 
-public sealed class StatusResponse : IClientBoundPacket
+public sealed class StatusResponse : Rentable<StatusResponse>, IClientBoundPacket
 {
     private const int PacketId = 0x00;
-    private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
-    
-    public Connection Connection { get; private set; }
-    public StatusResponse(Connection connection)
-    {
-        Connection = connection;
-    }
 
-    public bool TryWritePayloadTo(Span<byte> buffer, out int bytesWritten)
+    public bool SerializePayload(Span<byte> buffer, out int bytesWritten)
     {
+        // TODO: Dummy implementation. The server status should be set by the StatusRequest Handle() method before enqueuing this packet.
         bytesWritten = 0;
         
         var serverStatus = new ServerStatus(
@@ -41,5 +36,4 @@ public sealed class StatusResponse : IClientBoundPacket
         writer.WriteString(jsonResponse);
         return writer.IsSuccess(out bytesWritten);
     }
-    
 }

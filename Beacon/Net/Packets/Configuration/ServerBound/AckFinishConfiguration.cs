@@ -1,3 +1,5 @@
+using System.Buffers;
+
 namespace Beacon.Net.Packets.Configuration.ServerBound;
 
 /// <summary>
@@ -6,7 +8,16 @@ namespace Beacon.Net.Packets.Configuration.ServerBound;
 /// <remarks>
 /// This class has no logic; the connection should itself handle the packet and switch to Play state.
 /// </remarks>
-public class AckFinishConfiguration
+public sealed class AckFinishConfiguration : IServerBoundPacket
 {
     public const int PacketId = 0x03;
+    public void Handle(Server server, Connection connection)
+    {
+        // Nothing to do here.
+    }
+
+    public bool DeserializePayload(ref SequenceReader<byte> reader)
+    {
+        return true;
+    }
 }

@@ -11,7 +11,7 @@ namespace Beacon.Net.Packets.Configuration.ServerBound;
 /// <remarks>
 /// Note that the length of Data is known only from the packet length, since the packet has no length field of any kind.
 /// </remarks>
-public sealed class CustomPayloadFromClient : IServerBoundPacket, IPipeReadable<CustomPayloadFromClient>, IDisposable
+public sealed class CustomPayloadFromClient : Rentable<CustomPayloadFromClient>, IServerBoundPacket
 {
     public const int PacketId = 0x02;
     public const int PayloadMaxLength = 32767;
@@ -29,49 +29,38 @@ public sealed class CustomPayloadFromClient : IServerBoundPacket, IPipeReadable<
     /// </summary>
     public byte[] Payload { get; set; } = [];
     
-    private bool _isThisRented;
     private bool _isPayloadArrayRented;
     
     public void Handle(Server server, Connection connection)
     {
         // There are so many custom payloads, this is probably not the best place to handle them.
         // For now, we only care about the Brand the client sends us.
-        if (Channel == MinecraftChannel.Brand && 
-            VarInt.TryRead(Payload, out var brandBytesLength, out var bytesRead))
-        {
-            var brandBytes = Payload.AsSpan(bytesRead, brandBytesLength);
-            var brand = Encoding.UTF8.GetString(brandBytes);
-            
-            if (connection.Player is null)
-                throw new InvalidOperationException("Player should already be logged in at this stage.");
-            
-            connection.Player.Brand = brand;
-        }
-    }
+        if (Channel != MinecraftChannel.Brand) return;
+        if (!VarInt.TryRead(Payload, out var brandBytesLength, out var bytesRead)) return;
 
-    public void Dispose()
+        var brandBytes = Payload.AsSpan(bytesRead, brandBytesLength);
+        var brand = Encoding.UTF8.GetString(brandBytes);
+            
+        if (connection.Player is null)
+            throw new InvalidOperationException("Player should already be logged in at this stage.");
+            
+        connection.Player.Brand = brand;
+    }
+    
+    public override void Dispose()
     {
         if (_isPayloadArrayRented)
         {
             ArrayPool<byte>.Shared.Return(Payload);
             _isPayloadArrayRented = false;
         }
-        if (_isThisRented)
-        {
-            ObjectPool<CustomPayloadFromClient>.Shared.Return(this);
-            _isThisRented = false;
-        }
+        base.Dispose();
     }
-    
 
-    public static CustomPayloadFromClient Deserialize(ref SequenceReader<byte> reader)
+    public bool DeserializePayload(ref SequenceReader<byte> reader)
     {
-        reader.TryReadIdentifier(out var channel);
-        
-        if (reader.Remaining > PayloadMaxLength)
-        {
-            throw new ArgumentOutOfRangeException(nameof(reader), $"Payload length is too long. Max length is {PayloadMaxLength}.");
-        }
+        if (!reader.TryReadIdentifier(out var channel)) return false;
+        if (reader.Remaining > PayloadMaxLength) return false;
         
         var byteArrayLength = (int)reader.Remaining;
         var payloadArray = ArrayPool<byte>.Shared.Rent(byteArrayLength);
@@ -81,14 +70,12 @@ public sealed class CustomPayloadFromClient : IServerBoundPacket, IPipeReadable<
         if (!reader.TryCopyTo(payloadArray.AsSpan()[..byteArrayLength]))
         {
             ArrayPool<byte>.Shared.Return(payloadArray);
-            throw new InvalidOperationException("Failed to copy payload data to array.");
+            return false;
         }
         
-        var customPayload = ObjectPool<CustomPayloadFromClient>.Shared.Get();
-        customPayload._isThisRented = true;
-        customPayload._isPayloadArrayRented = true;
-        customPayload.Channel = channel;
-        customPayload.Payload = payloadArray;
-        return customPayload;
+        _isPayloadArrayRented = true;
+        Channel = channel;
+        Payload = payloadArray;
+        return true;
     }
 }

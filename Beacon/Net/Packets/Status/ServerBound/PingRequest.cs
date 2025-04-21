@@ -10,8 +10,7 @@ namespace Beacon.Net.Packets.Status.ServerBound;
 /// This packet does not follow the general Beacon way of packet handling; after receiving this packet, the connection
 /// immediately sends a Pong packet back to the client instead of letting the game loop handle it.
 /// </summary>
-public class PingRequest : IServerBoundPacket, IPipeReadable<PingRequest>, IDisposable
-    
+public class PingRequest : Rentable<PingRequest>, IServerBoundPacket
 {
     public const int PacketId = 0x01;
     
@@ -21,13 +20,19 @@ public class PingRequest : IServerBoundPacket, IPipeReadable<PingRequest>, IDisp
     /// </summary>
     public long Timestamp { get; set; }
     
-    private bool _isRented;
     public void Handle(Server server, Connection connection)
     {
-        var stream = connection.Tcp.GetStream();
-        WritePong(stream, Timestamp);
+        // Nothing to do here, the connection will handle this logic itself.
     }
-    
+
+    public bool DeserializePayload(ref SequenceReader<byte> reader)
+    {
+        if (!reader.TryReadLong(out var timestamp)) return false;
+        
+        Timestamp = timestamp;
+        return true;
+    }
+
     public static void WritePong(Stream stream, long timeStamp)
     {
         // This packet has a fixed length of 10 bytes.
@@ -49,20 +54,4 @@ public class PingRequest : IServerBoundPacket, IPipeReadable<PingRequest>, IDisp
         stream.Write(buffer);
     }
     
-    public static PingRequest Deserialize(ref SequenceReader<byte> reader)
-    {
-        reader.TryReadLong(out var timestamp);
-        
-        var pingRequest = ObjectPool<PingRequest>.Shared.Get();
-        pingRequest._isRented = true;
-        pingRequest.Timestamp = timestamp;
-        return pingRequest;
-    }
-
-    public void Dispose()
-    {
-        if (!_isRented) return;
-        ObjectPool<PingRequest>.Shared.Return(this);
-        _isRented = false;
-    }
 }

@@ -8,7 +8,7 @@ namespace Beacon.Net.Packets.Configuration.ServerBound;
 /// <summary>
 /// Sent when the player connects, or when settings are changed.
 /// </summary>
-public class ClientInformation : IServerBoundPacket, IPipeReadable<ClientInformation>, IDisposable
+public class ClientInformation : Rentable<ClientInformation>, IServerBoundPacket
 {
     public const int PacketId = 0x00;
 
@@ -58,8 +58,6 @@ public class ClientInformation : IServerBoundPacket, IPipeReadable<ClientInforma
     /// </summary>
     public ParticleIntensity ParticleStatus { get; set; }
     
-    private bool _isThisRented;
-    
     public void Handle(Server server, Connection connection)
     {
         // Nothing to do for now, later update the player info.
@@ -78,8 +76,48 @@ public class ClientInformation : IServerBoundPacket, IPipeReadable<ClientInforma
                           $"AllowServerListings: {AllowServerListings}, " +
                           $"ParticleStatus: {ParticleStatus}");
     }
-
-    public void ApplyTo(Player player)
+    
+    public bool DeserializePayload(ref SequenceReader<byte> reader)
+    {
+        if (!reader.TryReadString(out var locale)) return false;
+        
+        if (!reader.TryRead(out var viewDistanceByte)) return false;;
+        var viewDistance = Convert.ToSByte(viewDistanceByte);
+        
+        if (!reader.TryReadVarInt(out var chatModeVarInt)) return false;;
+        var chatMode = (ClientChatMode)chatModeVarInt;
+        
+        if (!reader.TryRead(out var chatColorsByte)) return false;;
+        var chatColors = Convert.ToBoolean(chatColorsByte);
+        
+        if (!reader.TryRead(out var displayedSkinPartsByte)) return false;;
+        var displayedSkinParts = (SkinParts)displayedSkinPartsByte;
+        
+        if (!reader.TryReadVarInt(out var mainHandVarInt)) return false;;
+        var mainHand = (Hand)mainHandVarInt;
+        
+        if (!reader.TryRead(out var enableTextFilteringByte)) return false;;
+        var enableTextFiltering = Convert.ToBoolean(enableTextFilteringByte);
+        
+        if (!reader.TryRead(out var allowServerListingsByte)) return false;;
+        var allowServerListings = Convert.ToBoolean(allowServerListingsByte);
+        
+        if (!reader.TryReadVarInt(out var particleStatusVarInt)) return false;;
+        var particleStatus = (ParticleIntensity)particleStatusVarInt;
+        
+        Locale = locale;
+        ViewDistance = viewDistance;
+        ChatMode = chatMode;
+        ChatColors = chatColors;
+        DisplayedSkinParts = displayedSkinParts;
+        MainHand = mainHand;
+        EnableTextFiltering = enableTextFiltering;
+        AllowServerListings = allowServerListings;
+        ParticleStatus = particleStatus;
+        return true;
+    }
+    
+    private void ApplyTo(Player player)
     {
         player.Locale = Locale;
         player.ViewDistance = ViewDistance;
@@ -90,54 +128,5 @@ public class ClientInformation : IServerBoundPacket, IPipeReadable<ClientInforma
         player.EnableTextFiltering = EnableTextFiltering;
         player.AllowServerListings = AllowServerListings;
         player.ParticleStatus = ParticleStatus;
-    }
-    
-    public void Dispose()
-    {
-        if (!_isThisRented) return;
-        ObjectPool<ClientInformation>.Shared.Return(this);
-        _isThisRented = false;
-    }
-
-    public static ClientInformation Deserialize(ref SequenceReader<byte> reader)
-    {
-        reader.TryReadString(out var locale);
-        
-        reader.TryRead(out var viewDistanceByte);
-        var viewDistance = Convert.ToSByte(viewDistanceByte);
-        
-        reader.TryReadVarInt(out var chatModeVarInt);
-        var chatMode = (ClientChatMode)chatModeVarInt;
-        
-        reader.TryRead(out var chatColorsByte);
-        var chatColors = Convert.ToBoolean(chatColorsByte);
-        
-        reader.TryRead(out var displayedSkinPartsByte);
-        var displayedSkinParts = (SkinParts)displayedSkinPartsByte;
-        
-        reader.TryReadVarInt(out var mainHandVarInt);
-        var mainHand = (Hand)mainHandVarInt;
-        
-        reader.TryRead(out var enableTextFilteringByte);
-        var enableTextFiltering = Convert.ToBoolean(enableTextFilteringByte);
-        
-        reader.TryRead(out var allowServerListingsByte);
-        var allowServerListings = Convert.ToBoolean(allowServerListingsByte);
-        
-        reader.TryReadVarInt(out var particleStatusVarInt);
-        var particleStatus = (ParticleIntensity)particleStatusVarInt;
-        
-        var packet = ObjectPool<ClientInformation>.Shared.Get();
-        packet._isThisRented = true;
-        packet.Locale = locale;
-        packet.ViewDistance = viewDistance;
-        packet.ChatMode = chatMode;
-        packet.ChatColors = chatColors;
-        packet.DisplayedSkinParts = displayedSkinParts;
-        packet.MainHand = mainHand;
-        packet.EnableTextFiltering = enableTextFiltering;
-        packet.AllowServerListings = allowServerListings;
-        packet.ParticleStatus = particleStatus;
-        return packet;
     }
 }

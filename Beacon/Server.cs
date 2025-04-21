@@ -44,17 +44,13 @@ public class  Server : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var counter = 0;
-            
             // Read all the incoming packets that need to be handled.
             while (_serverBoundPackets.Reader.TryRead(out QueuedServerBoundPacket queuedPacket))
             {
+                using var packet = queuedPacket.Packet as IDisposable;
                 try
                 {
-                    counter++;
                     queuedPacket.Packet.Handle(this, queuedPacket.Origin);
-                    if (queuedPacket.Packet is IDisposable disposablePacket)
-                        disposablePacket.Dispose();
                 }
                 catch (Exception e)
                 {
@@ -63,7 +59,6 @@ public class  Server : BackgroundService
                 }
             }
             Thread.Sleep(50);
-        //    Console.WriteLine(counter);
         }
     }
     

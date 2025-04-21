@@ -9,7 +9,7 @@ namespace Beacon.Net.Packets.Configuration.ClientBound;
 /// <remarks>
 /// Note that the length of Data is known only from the packet length, since the packet has no length field of any kind.
 /// </remarks>
-public class CustomPayloadFromServer  : IClientBoundPacket
+public sealed class CustomPayloadFromServer : Rentable<CustomPayloadFromServer>, IClientBoundPacket
 {
     public const int PacketId = 0x01;
     public const int PayloadMaxLength = 32767;
@@ -26,9 +26,8 @@ public class CustomPayloadFromServer  : IClientBoundPacket
     /// The length of this array must be inferred from the packet length.
     /// </summary>
     public byte[] Payload { get; set; } = [];
-
-
-    public bool TryWritePayloadTo(Span<byte> buffer, out int bytesWritten)
+    
+    public bool SerializePayload(Span<byte> buffer, out int bytesWritten)
     {
         var writer = new PayloadWriter(buffer, PacketId);
         writer.WriteString(Channel);

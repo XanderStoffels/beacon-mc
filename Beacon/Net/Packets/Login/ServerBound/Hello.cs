@@ -8,7 +8,7 @@ namespace Beacon.Net.Packets.Login.ServerBound;
 /// <summary>
 /// Login Start.
 /// </summary>
-public class Hello : IServerBoundPacket, IPipeReadable<Hello>, IDisposable
+public class Hello : Rentable<Hello>, IServerBoundPacket
 {
     public const int PacketId = 0x00;
 
@@ -23,40 +23,25 @@ public class Hello : IServerBoundPacket, IPipeReadable<Hello>, IDisposable
     /// The UUID of the player logging in. Unused by the vanilla server.
     /// </summary>
     public Guid PlayerUuid { get; set; } = Guid.Empty;
-    private bool _isThisRented;
     
     public void Handle(Server server, Connection connection)
     {
-        // TODO: Get LoginFinished from ObjectPool.
         connection.Player = new Player(PlayerUuid, Name);
-        connection.EnqueuePacket(new LoginFinished
-        {
-            Username = Name,
-            Uuid = PlayerUuid
-        });
+        
+        var responsePacket = LoginFinished.Rent();
+        responsePacket.Username = Name;
+        responsePacket.Uuid = PlayerUuid;
+        connection.EnqueuePacket(responsePacket);
     }
 
-    public static Hello Deserialize(ref SequenceReader<byte> reader)
+    public bool DeserializePayload(ref SequenceReader<byte> reader)
     {
         reader.TryReadString(out var username);
         reader.TryReadUuid(out var playerUuid);
         
-        var hello = ObjectPool<Hello>.Shared.Get();
-        hello._isThisRented = true;
-        hello.Name = username;
-        hello.PlayerUuid = playerUuid;
-        
-        return new Hello
-        {
-            Name = username,
-            PlayerUuid = playerUuid
-        };
+        Name = username;
+        PlayerUuid = playerUuid;
+        return true;
     }
-
-    public void Dispose()
-    {
-        if (!_isThisRented) return;
-        ObjectPool<Hello>.Shared.Return(this);
-        _isThisRented = false;
-    }
+    
 }
