@@ -12,7 +12,7 @@ public sealed class FinishConfiguration : Rentable<FinishConfiguration>, IClient
     
     public bool SerializePayload(Span<byte> buffer, out int bytesWritten)
     {
-        bytesWritten = 0;
-        return true;
+        var writer = new PayloadWriter(buffer, PacketId);
+        return writer.IsSuccess(out  bytesWritten);
     }
 }

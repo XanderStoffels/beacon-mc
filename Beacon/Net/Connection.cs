@@ -1,8 +1,11 @@
 using System.Buffers;
+using System.Collections.Frozen;
 using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading.Channels;
+using Beacon.Api.Plugins;
 using Beacon.Core;
 using Beacon.Net.Packets;
 using Beacon.Net.Packets.Configuration.ClientBound;
@@ -15,7 +18,7 @@ using Beacon.Net.Packets.Status.ServerBound;
 namespace Beacon.Net;
 
 [DebuggerDisplay("{State}, {Player?.Username} {Tcp.Client?.RemoteEndPoint}")]
-public sealed class Connection : IDisposable
+public sealed partial class Connection : IDisposable
 {
     public ConnectionState State { get; private set; } = ConnectionState.Handshaking;
     public TcpClient Tcp { get; private set; }
@@ -25,12 +28,16 @@ public sealed class Connection : IDisposable
     private readonly Channel<IClientBoundPacket> _clientBoundPackets;
     private readonly ILogger<Connection> _logger;
     private readonly KeepAliver _configurationKeepAliver = new(TimeSpan.FromSeconds(15));
+    private readonly FrozenDictionary<PacketIdentifier, FrozenSet<IPacketInterceptor>> _interceptors;
 
     private bool _shouldClose;
-    private bool _expectLoginAck;
-    private bool _expectConfigurationAck;
 
     public Connection(Server server, TcpClient client, ILogger<Connection> logger)
+        : this(server, client, FrozenDictionary<PacketIdentifier, FrozenSet<IPacketInterceptor>>.Empty, logger)
+    {
+    }
+    
+    public Connection(Server server, TcpClient client, FrozenDictionary<PacketIdentifier, FrozenSet<IPacketInterceptor>> interceptors, ILogger<Connection> logger)
     {
         if (!client.GetStream().CanRead)
             throw new ArgumentException("TcpClient is not readable");
@@ -39,6 +46,7 @@ public sealed class Connection : IDisposable
             throw new ArgumentException("TcpClient is not writable");
 
         _server = server;
+        _interceptors = interceptors;
         _clientBoundPackets = Channel.CreateUnbounded<IClientBoundPacket>(new UnboundedChannelOptions()
         {
             SingleReader = true,
@@ -153,6 +161,29 @@ public sealed class Connection : IDisposable
                 }
 
                 VarInt.TryWrite(prefixBuffer.Span, payloadLength, out var prefixLength);
+                
+#if DEBUG
+                // Write the buffer to a file for debugging purposes.
+                var builder = new StringBuilder();
+                // Write the bytes as decimal values on a single line.
+              
+                builder.Append(State.ToString());
+                builder.Append(" < ");
+                foreach (var b in prefixBuffer[..prefixLength].ToArray())
+                {
+                    builder.Append(b);
+                    builder.Append(' ');
+                }
+                foreach (var b in buffer[..payloadLength].ToArray())
+                {
+                    builder.Append(b);
+                    builder.Append(' ');
+                }
+                builder.AppendLine();
+                Directory.CreateDirectory("packets");
+                File.AppendAllText($"packets/{Tcp.Client.RemoteEndPoint}.txt", builder.ToString());
+#endif
+                
                 try
                 {
                     await stream.WriteAsync(prefixBuffer[..prefixLength], CancellationToken.None);
@@ -174,6 +205,24 @@ public sealed class Connection : IDisposable
             packet = null;
             return false;
         }
+        
+#if DEBUG
+        // Write the buffer to a file for debugging purposes.
+        var builder = new StringBuilder();
+        Span<byte> bufferSpan = stackalloc byte[(int)buffer.Length];
+        buffer.CopyTo(bufferSpan);
+        // Write the bytes as decimal values on a single line.
+        builder.Append(State.ToString());
+        builder.Append(" > ");
+        foreach (var b in bufferSpan)
+        {
+            builder.Append(b);
+            builder.Append(' ');
+        }
+        builder.AppendLine();
+        Directory.CreateDirectory("packets");
+        File.AppendAllText($"packets/{Tcp.Client.RemoteEndPoint}.txt", builder.ToString());
+#endif
 
         var bufferReader = new SequenceReader<byte>(buffer);
 
@@ -204,158 +253,6 @@ public sealed class Connection : IDisposable
         packet = ParsePacketData(ref packetReader, packetId);
         buffer = buffer.Slice(packetSizeVarIntSize + packetSize);
         return true;
-    }
-
-    private IServerBoundPacket? ParsePacketData(ref SequenceReader<byte> reader, int packetId)
-    {
-        switch (State)
-        {
-            case ConnectionState.Handshaking:
-                ParseHandshakingPacket(ref reader, packetId);
-                return null;
-            case ConnectionState.Status:
-                ParseStatusPacket(ref reader, packetId);
-                return null;
-            case ConnectionState.Login:
-                ParseLoginPacket(ref reader, packetId);
-                return null;
-            case ConnectionState.Configuration:
-                ParseConfigurationPacket(ref reader, packetId);
-                return null;
-            case ConnectionState.Transfer:
-            case ConnectionState.Play:
-            default:
-                throw new NotImplementedException($"State {State} is not implemented");
-        }
-    }
-
-    private void ParseHandshakingPacket(ref SequenceReader<byte> reader, int packetId)
-    {
-        switch (packetId)
-        {
-            case Handshake.PacketId:
-            {
-                using var handshake = Handshake.Rent();
-                handshake.DeserializePayload(ref reader);
-                State = (ConnectionState)handshake.NextState;
-
-                // Send a finish configuration packet to skip the configuration phase.
-                var finishConfiguration = new FinishConfiguration();
-                EnqueuePacket(finishConfiguration);
-                return;
-            }
-            case 0xFE:
-            {
-                // This is a legacy packet.
-                var stream = Tcp.GetStream();
-                stream.WriteByte(0xFF);
-                _shouldClose = true;
-                return;
-            }
-        }
-
-        throw new NotImplementedException($"Parsing packet id {packetId} for state Handshaking is not implemented");
-    }
-
-    private StatusRequest? ParseStatusPacket(ref SequenceReader<byte> reader, int packetId)
-    {
-        switch (packetId)
-        {
-            case StatusRequest.PacketId:
-                // Don't clutter the game loop with this packet. It does not affect the game state.
-                StatusRequest.Instance.Handle(_server, this);
-                return null;
-
-            case PingRequest.PacketId:
-                // Instead of creating a new packet here, we can just inline the logic because it's so simple.
-                reader.TryReadLong(out var timestamp);
-                PingRequest.WritePong(Tcp.GetStream(), timestamp);
-
-                // No further handling is needed, the packet is already sent.
-                return null;
-        }
-
-        throw new NotImplementedException($"Parsing packet id {packetId} for state Status is not implemented");
-    }
-
-    /// <summary>
-    /// Login packets do not change the state of the world, so they are handled immediately.
-    /// </summary>
-    /// <param name="reader"></param>
-    /// <param name="packetId"></param>
-    /// <exception cref="NotImplementedException"></exception>
-    private void ParseLoginPacket(ref SequenceReader<byte> reader, int packetId)
-    {
-        switch (packetId)
-        {
-            case Hello.PacketId:
-            {
-                _expectLoginAck = true;
-                using var hello = Hello.Rent();
-                hello.DeserializePayload(ref reader);
-                hello.Handle(_server, this);
-                return;
-            }
-
-            case 0x03 when _expectLoginAck:
-            {
-                _expectLoginAck = false;
-                State = ConnectionState.Configuration;
-
-                if (!_configurationKeepAliver.IsRunning)
-                    _configurationKeepAliver.Start();
-                return;
-            }
-
-            case 0x03:
-            {
-                _shouldClose = true;
-                return;
-            }
-        }
-
-        throw new NotImplementedException($"Parsing packet id {packetId} for state Login is not implemented");
-    }
-
-    /// <summary>
-    /// Configuration packets do not change the state of the world, so they are handled immediately.
-    /// </summary>
-    /// <param name="reader"></param>
-    /// <param name="packetId"></param>
-    /// <exception cref="NotImplementedException"></exception>
-    private void ParseConfigurationPacket(ref SequenceReader<byte> reader, int packetId)
-    {
-        switch (packetId)
-        {
-            case ClientInformation.PacketId:
-            {
-                using var packet = ClientInformation.Rent();
-                packet.DeserializePayload(ref reader);
-                packet.Handle(_server, this);
-                return;
-            }
-            case CustomPayloadFromClient.PacketId:
-            {
-                using var packet = CustomPayloadFromClient.Rent();
-                packet.DeserializePayload(ref reader);
-                packet.Handle(_server, this);
-                return;
-            }
-            case AckFinishConfiguration.PacketId:
-            {
-                if (!_expectConfigurationAck)
-                {
-                    _logger.LogWarning($"Received configuration ack, but we didn't ask for it. Closing connection");
-                    _shouldClose = true;
-                    return;
-                }
-
-                State = ConnectionState.Play;
-                return;
-            }
-        }
-
-        throw new NotImplementedException($"Parsing packet id {packetId} for state Configuration is not implemented");
     }
 
     #region Events

@@ -18,7 +18,6 @@ internal abstract class ObjectPool<T> where T : new()
         {
             var o = _stack.TryPop(out var obj) ? obj : new TObject();
             _rentedCount++;
-            Console.WriteLine($"ObjectPool<{typeof(TObject).Name}>: GET ({_rentedCount}");
             return o;
         }
 
@@ -26,7 +25,6 @@ internal abstract class ObjectPool<T> where T : new()
         {
             _rentedCount--;
             _stack.Push(u);
-            Console.WriteLine($"ObjectPool<{typeof(TObject).Name}>: RETURN ({_rentedCount})");
 
         }
     }
