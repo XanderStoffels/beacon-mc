@@ -24,7 +24,7 @@ public sealed class StatusResponse : Rentable<StatusResponse>, IClientBoundPacke
             770,
             100,
             1,
-            "§fPowered by §6Beacon§f!",
+            "§fHello §5.NET §fMeetup §cTokyo!",
             string.Empty,
             false,
             new ServerStatus.StatusPlayerSample("§6Notch", "069a79f4-44e9-4726-a5be-fca90e38aaf5")
@@ -33,7 +33,7 @@ public sealed class StatusResponse : Rentable<StatusResponse>, IClientBoundPacke
         var jsonResponse = JsonSerializer.Serialize(serverStatus, JsonOptions);
 
         var writer = new PayloadWriter(buffer, PacketId);
-        writer.WriteString(jsonResponse);
+        writer.WriteVarString(jsonResponse);
         return writer.IsSuccess(out bytesWritten);
     }
 }

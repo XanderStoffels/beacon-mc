@@ -30,7 +30,7 @@ public sealed class CustomPayloadFromServer : Rentable<CustomPayloadFromServer>,
     public bool SerializePayload(Span<byte> buffer, out int bytesWritten)
     {
         var writer = new PayloadWriter(buffer, PacketId);
-        writer.WriteString(Channel);
+        writer.WriteVarString(Channel);
         writer.Write(Payload);
         return writer.IsSuccess(out bytesWritten);
     }

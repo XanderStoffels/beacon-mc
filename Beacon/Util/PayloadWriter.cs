@@ -1,4 +1,8 @@
 
+using System.Buffers;
+using Beacon.Api;
+using Beacon.Net;
+
 namespace Beacon.Util;
 
 /// <summary>
@@ -39,7 +43,7 @@ public ref struct PayloadWriter
         _isFaulted = !_writer.TryWriteVarLong(value);
     }
     
-    public void WriteString(ReadOnlySpan<char> value)
+    public void WriteVarString(ReadOnlySpan<char> value)
     {
         if (_isFaulted) return;
         _isFaulted = !_writer.TryWriteVarString(value);
@@ -49,6 +53,17 @@ public ref struct PayloadWriter
     {
         if (_isFaulted) return;
         _isFaulted = !_writer.TryWriteUuid(guid);
+    }
+    
+    /// <summary>
+    /// Signed 32-bit integer, two's complement
+    /// </summary>
+    /// <param name="entityId"></param>
+    /// <exception cref="NotImplementedException"></exception>
+    public void WriteInt(int entityId)
+    {
+        if (_isFaulted) return;
+        _isFaulted = !_writer.TryWriteInt(entityId);
     }
 
     public void Write(Span<byte> buffer)
@@ -61,5 +76,72 @@ public ref struct PayloadWriter
     {
         bytesWritten = _isFaulted ? 0 : _writer.BytesWritten;
         return !_isFaulted;
+    }
+
+
+    public void WriteBool(bool isHardcore)
+    {
+        if (_isFaulted) return;
+        _isFaulted = !_writer.TryWriteBool(isHardcore);
+    }
+
+    /// <summary>
+    /// Writes a list of VarStrings to the buffer, prefixed with the total length of the list as a VarInt.
+    /// </summary>
+    /// <param name="strings"></param>
+    public void WritePrefixedStringArray(List<string> strings)
+    {
+        if (_isFaulted) return;
+        WriteVarInt(strings.Count);
+        foreach (var s in strings)
+        {
+            WriteVarString(s);
+        }
+    }
+    
+    public void WritePrefixedIdentifierArray(List<string> identifiers)
+    {   
+        if (_isFaulted) return;
+        WriteVarInt(identifiers.Count);
+        foreach (var identifier in identifiers)
+        {
+            WriteIdentifier(identifier);
+        }
+    }
+
+    public void WriteIdentifier(string dimensionName)
+    {
+        // Identifiers are just strings limited in length.
+        WriteVarString(dimensionName);
+    }
+
+    public void WriteUnsignedByte(byte value)
+    {
+        if (_isFaulted) return;
+        _isFaulted = !_writer.TryWriteUnsignedByte(value);
+    }
+    
+    public void WriteSignedByte(sbyte value)
+    {
+        if (_isFaulted) return;
+        _isFaulted = !_writer.TryWriteSignedByte(value);
+    }
+    
+    public void WriteSignedShort(short value)
+    {
+        if (_isFaulted) return;
+        _isFaulted = !_writer.TryWriteSignedShort(value);
+    }
+    
+    public void WriteUnsignedShort(ushort value)
+    {
+        if (_isFaulted) return;
+        _isFaulted = !_writer.TryWriteUnsignedShort(value);
+    }
+
+    public void WritePosition(Position deathLocation)
+    {
+        if (_isFaulted) return;
+        _isFaulted = !_writer.TryWritePosition(deathLocation);
     }
 }

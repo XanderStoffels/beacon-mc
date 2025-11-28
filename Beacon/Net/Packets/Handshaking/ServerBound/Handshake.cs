@@ -19,7 +19,7 @@ public class Handshake : Rentable<Handshake>, IServerBoundPacket
     public bool DeserializePayload(ref SequenceReader<byte> reader)
     {
         reader.TryReadVarInt(out var protocolVersion, out _);
-        reader.TryReadString(out var serverAddress);
+        reader.TryReadVarString(out var serverAddress);
         reader.TryReadUShort(out var serverPort);
         reader.TryReadVarInt(out var nextState, out _);
         

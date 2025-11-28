@@ -79,7 +79,7 @@ public class ClientInformation : Rentable<ClientInformation>, IServerBoundPacket
     
     public bool DeserializePayload(ref SequenceReader<byte> reader)
     {
-        if (!reader.TryReadString(out var locale)) return false;
+        if (!reader.TryReadVarString(out var locale)) return false;
         
         if (!reader.TryRead(out var viewDistanceByte)) return false;;
         var viewDistance = Convert.ToSByte(viewDistanceByte);

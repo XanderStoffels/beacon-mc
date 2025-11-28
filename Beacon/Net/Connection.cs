@@ -29,6 +29,7 @@ public sealed partial class Connection : IDisposable
     private readonly ILogger<Connection> _logger;
     private readonly KeepAliver _configurationKeepAliver = new(TimeSpan.FromSeconds(15));
     private readonly FrozenDictionary<PacketIdentifier, FrozenSet<IPacketInterceptor>> _interceptors;
+    private readonly string _clientIp; 
 
     private bool _shouldClose;
 
@@ -53,13 +54,15 @@ public sealed partial class Connection : IDisposable
             SingleWriter = false
         });
         _logger = logger;
+        _clientIp = client.Client.RemoteEndPoint?.ToString() ?? "null";
         Tcp = client;
 
         _configurationKeepAliver.IntervalStarted += OnConfigurationKeepAliveIntervalStarted;
         _configurationKeepAliver.TimerExpired += OnConfigurationKeepAliveExpired;
     }
 
-    public async Task SendAndReceivePackets(ChannelWriter<QueuedServerBoundPacket> serverPacketQueue,
+    public async Task SendAndReceivePackets(
+        ChannelWriter<QueuedServerBoundPacket> serverPacketQueue,
         CancellationToken cancelToken)
     {
         var cancelSource = CancellationTokenSource.CreateLinkedTokenSource(cancelToken);
@@ -70,21 +73,21 @@ public sealed partial class Connection : IDisposable
             processInbound,
             processOutbound
         );
-
+        
+        await cancelSource.CancelAsync();
+        
         // Check why the task completed.
         if (processInbound.IsFaulted)
         {
-            _logger.LogError(processInbound.Exception, "Error processing inbound packets");
+            _logger.LogError(processInbound.Exception, "Error processing inbound packets for {ClientIp}", _clientIp);
             _shouldClose = true;
         }
 
         if (processOutbound.IsFaulted)
         {
-            _logger.LogError(processOutbound.Exception, "Error processing outbound packets");
+            _logger.LogError(processOutbound.Exception, "Error processing outbound packets for {ClientIp}", _clientIp);
             _shouldClose = true;
         }
-
-        await cancelSource.CancelAsync();
     }
 
     public bool EnqueuePacket(IClientBoundPacket packet)
@@ -97,43 +100,41 @@ public sealed partial class Connection : IDisposable
 
         return _clientBoundPackets.Writer.TryWrite(packet);
     }
+    
+    
+    
+    
 
-    private async Task ProcessServerBoundPackets(ChannelWriter<QueuedServerBoundPacket> packetQueue,
+    private async Task ProcessServerBoundPackets(
+        ChannelWriter<QueuedServerBoundPacket> packetQueue,
         CancellationToken cancelToken)
     {
         var stream = Tcp.GetStream();
-
-        // This pipe handles all incoming traffic.
-        // The writer is given by .NET using PipeReader.Create, this will write data from the stream into the pipeline.
-        // The reader reads data from the pipe and parses it as packets.
         var reader = PipeReader.Create(stream);
 
         while (!cancelToken.IsCancellationRequested && !_shouldClose)
         {
-            // ReadAsync will block until there is data available.
-            // The result will be a buffer that contains the data read from the stream.
-            // The buffer is a ReadOnlySequence<byte>, which is a memory-efficient way to handle large amounts of data.
-            // It can be sliced and manipulated without copying the data.
-            var result = await reader.ReadAsync(cancelToken);
+            ReadResult result = await reader.ReadAsync(cancelToken);
             if (result.IsCanceled) return;
 
-            var buffer = result.Buffer;
-
-
+            ReadOnlySequence<byte> buffer = result.Buffer;
+            
             while (TryReadPacket(ref buffer, out IServerBoundPacket? packet) && !_shouldClose)
             {
-                // Write the parsed packed on a queue to be handled by the main game loop.
                 if (packet is null) continue;
                 var queuedPacket = new QueuedServerBoundPacket(packet, this);
                 packetQueue.TryWrite(queuedPacket);
             }
-
+            
             reader.AdvanceTo(buffer.Start, buffer.End);
 
             if (result.IsCompleted)
                 break;
         }
     }
+    
+    
+    
 
     private async Task ProcessClientBoundPackets(CancellationToken cancelToken)
     {
@@ -151,6 +152,11 @@ public sealed partial class Connection : IDisposable
                 {
                     return;
                 }
+                
+                if (packet is KeepAlive && State is not ConnectionState.Configuration) 
+                {
+                    continue;
+                }
 
                 // The payload is all the bytes after the initial VarInt.
                 // Before writing the payload, we need to write the VarInt length of the payload.
@@ -161,14 +167,14 @@ public sealed partial class Connection : IDisposable
                 }
 
                 VarInt.TryWrite(prefixBuffer.Span, payloadLength, out var prefixLength);
-                
+                Console.WriteLine($"Writing packet {packet.GetType().Name} with length {payloadLength} to stream");
 #if DEBUG
                 // Write the buffer to a file for debugging purposes.
                 var builder = new StringBuilder();
                 // Write the bytes as decimal values on a single line.
               
                 builder.Append(State.ToString());
-                builder.Append(" < ");
+                builder.Append(" to client > ");
                 foreach (var b in prefixBuffer[..prefixLength].ToArray())
                 {
                     builder.Append(b);
@@ -224,10 +230,10 @@ public sealed partial class Connection : IDisposable
         File.AppendAllText($"packets/{Tcp.Client.RemoteEndPoint}.txt", builder.ToString());
 #endif
 
-        var bufferReader = new SequenceReader<byte>(buffer);
+        var sequenceReader = new SequenceReader<byte>(buffer);
 
         // The first few bytes should always be a VarInt.
-        if (!bufferReader.TryReadVarInt(out var packetSize, out var packetSizeVarIntSize))
+        if (!sequenceReader.TryReadVarInt(out var packetSize, out var packetSizeVarIntSize))
         {
             // Could not read a VarInt, wait for more data.
             packet = null;
@@ -236,12 +242,13 @@ public sealed partial class Connection : IDisposable
 
         // We now know the size of the packet. 
         // Check if the reader has enough data for the whole packet. If not, wait some more.
-        if (!bufferReader.TryReadExact(packetSize, out var packetData))
+        if (!sequenceReader.TryReadExact(packetSize, out var packetData))
         {
             packet = null;
             return false;
         }
 
+        // We read the packet data successfully. Now parse it.
         // The packet reader read over the exact size of the packet.
         var packetReader = new SequenceReader<byte>(packetData);
         if (!packetReader.TryReadVarInt(out var packetId, out _))
@@ -257,7 +264,7 @@ public sealed partial class Connection : IDisposable
 
     #region Events
 
-    private void OnConfigurationKeepAliveIntervalStarted(object? sender, EventArgs e)
+    private void OnConfigurationKeepAliveIntervalStarted(object? sender, long key)
     {
         if (State != ConnectionState.Configuration)
         {
@@ -265,7 +272,9 @@ public sealed partial class Connection : IDisposable
             return;
         }
 
-        // EnqueuePacket(new KeepAlive());
+        var keepAlive = KeepAlive.Rent();
+        keepAlive.Timestamp = key;
+        EnqueuePacket(keepAlive);
     }
 
     private void OnConfigurationKeepAliveExpired(object? sender, EventArgs e)

@@ -51,7 +51,7 @@ public static class ProtocolHelper
     /// <param name="bytesRead">The size of the VarInt in bytes, thus the amount of bytes the reader has advanced.</param>
     /// <remarks>A VarInt is between 1 and 5 bytes long. Important: if a VarInt could not be parsed, the reader can still have advanced by maximum 5 bytes.
     /// You can check bytesRead to see how many places the reader has advanced.</remarks>
-    /// <returns>Indicator if a VarInt was able to be read.</returns>
+    /// <returns>Indicator if a VarInt was read.</returns>
     public static bool TryReadVarInt(this ref SequenceReader<byte> reader, out int result, out int bytesRead)
     {
         result = 0;
@@ -102,7 +102,7 @@ public static class ProtocolHelper
     /// <param name="reader"></param>
     /// <param name="value"></param>
     /// <returns></returns>
-    public static bool TryReadString(this ref SequenceReader<byte> reader, out string value)
+    public static bool TryReadVarString(this ref SequenceReader<byte> reader, out string value)
     {
         if (!reader.TryReadVarInt(out var length, out var bytesRead))
         {
@@ -125,7 +125,7 @@ public static class ProtocolHelper
     }
     
     /// <summary>
-    /// Alias for <see cref="TryReadString(ref SequenceReader{byte}, out string)"/>, since Identifiers are just strings in the Minecraft Protocol.
+    /// Alias for <see cref="TryReadVarString"/>, since Identifiers are just strings in the Minecraft Protocol.
     /// Technically, they are limited to a size of 32767, but this is not enforced by Beacon while reading as of now.
     /// </summary>
     /// <param name="reader"></param>
@@ -133,7 +133,7 @@ public static class ProtocolHelper
     /// <returns></returns>
     public static bool TryReadIdentifier(this ref SequenceReader<byte> reader, out string value)
     {
-        return TryReadString(ref reader, out value);
+        return TryReadVarString(ref reader, out value);
     }
 
     /// <summary>
@@ -188,19 +188,5 @@ public static class ProtocolHelper
         value = new Guid(guidBytes, true);
         return true;
     }
-
-    /// <summary>
-    /// Tries to write a <see cref="long"/> to the span.
-    /// Always writes 8 bytes.
-    /// </summary>
-    /// <param name="value"></param>
-    /// <param name="buffer"></param>
-    /// <returns>False if the span is not big enough to hold 8 bytes, true otherwise.</returns>
-    public static bool TryWriteLong(long value, Span<byte> buffer)
-    {
-        if (buffer.Length < 8)
-            return false;
-        BinaryPrimitives.WriteInt64BigEndian(buffer, value);
-        return true;
-    }
+    
 }

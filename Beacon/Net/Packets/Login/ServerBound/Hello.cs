@@ -36,7 +36,7 @@ public class Hello : Rentable<Hello>, IServerBoundPacket
 
     public bool DeserializePayload(ref SequenceReader<byte> reader)
     {
-        reader.TryReadString(out var username);
+        reader.TryReadVarString(out var username);
         reader.TryReadUuid(out var playerUuid);
         
         Name = username;

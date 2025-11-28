@@ -6,7 +6,7 @@ public class KeepAliver(TimeSpan interval) : IDisposable
     /// The keep alive started waiting for a call to <see cref="KeepAlive"/>.
     /// If no call is made before the deadline, the <see cref="TimerExpired"/> event is raised.
     /// </summary>
-    public event EventHandler? IntervalStarted;
+    public event EventHandler<long>? IntervalStarted;
     
     /// <summary>
     /// The keep alive timer was expired.
@@ -40,8 +40,7 @@ public class KeepAliver(TimeSpan interval) : IDisposable
                     // Generate a new key.
                     Key = DateTimeOffset.UtcNow.Ticks;
 
-                    Console.WriteLine("Waiting for keep alive...");
-                    IntervalStarted?.Invoke(this, EventArgs.Empty);
+                    IntervalStarted?.Invoke(this, Key);
                     await Task.Delay(interval, token);
 
                     if (token.IsCancellationRequested)

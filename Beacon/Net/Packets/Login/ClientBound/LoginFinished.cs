@@ -17,7 +17,7 @@ public class LoginFinished : Rentable<LoginFinished>, IClientBoundPacket
     {
         var writer = new PayloadWriter(buffer, PacketId);
         writer.WriteUuid(Uuid);
-        writer.WriteString(Username);
+        writer.WriteVarString(Username);
         writer.WriteVarInt(0); // Empty property array
         return writer.IsSuccess(out bytesWritten);
     }

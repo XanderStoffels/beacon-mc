@@ -10,14 +10,13 @@ namespace Beacon;
 public class  Server : BackgroundService
 {
     private readonly ILogger<Server> _logger;
-    private readonly ServerConfiguration _config;
-    
-    private readonly Channel<QueuedServerBoundPacket> _serverBoundPackets;
     private readonly ILoggerFactory _loggerFactory;
+    private readonly ServerConfiguration _config;
+    private readonly Channel<QueuedServerBoundPacket> _serverBoundPackets;
 
-    public Server(ILogger<Server> logger, ServerConfiguration config, ILoggerFactory loggerFactory)
+    public Server(ILoggerFactory loggerFactory, ServerConfiguration config)
     {
-        _logger = logger;
+        _logger = loggerFactory.CreateLogger<Server>();
         _loggerFactory = loggerFactory;
         _config = config;
         _serverBoundPackets = Channel.CreateUnbounded<QueuedServerBoundPacket>(new UnboundedChannelOptions
@@ -27,7 +26,6 @@ public class  Server : BackgroundService
         });
     }
     
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Server started on port {Port}", _config.Port);
@@ -35,11 +33,10 @@ public class  Server : BackgroundService
         var acceptClients = AcceptClients(stoppingToken);
         DoGameLoop(stoppingToken);
         
-        await Task.WhenAll(acceptClients);
+        await acceptClients;
         _logger.LogInformation("Server has shut down");
     }
-
-
+    
     private void DoGameLoop(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -71,12 +68,17 @@ public class  Server : BackgroundService
             using var connection = new Connection(this, client, logger);
             await connection.SendAndReceivePackets(_serverBoundPackets.Writer, cancelToken);
         }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Client ({RemoteEndPoint}) connection cancelled", endpoint);
+            return;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling client connection");
         }
         
-        _logger.LogInformation("Client disconnected from {RemoteEndPoint}", endpoint);
+        _logger.LogInformation("Client ({RemoteEndPoint}) disconnected", endpoint);
     }
     
   

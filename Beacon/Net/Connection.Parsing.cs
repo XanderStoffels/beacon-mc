@@ -12,6 +12,7 @@ public sealed partial class Connection
 {
     private bool _expectLoginAck;
     private bool _expectConfigurationAck;
+    public List<KnownPack> KnownPacks { get; set; } = [];
 
     private IServerBoundPacket? ParsePacketData(ref SequenceReader<byte> reader, int packetId)
     {
@@ -27,8 +28,7 @@ public sealed partial class Connection
                 ParseLoginPacket(ref reader, packetId);
                 return null;
             case ConnectionState.Configuration:
-                ParseConfigurationPacket(ref reader, packetId);
-                return null;
+                return ParseConfigurationPacket(ref reader, packetId);
             case ConnectionState.Transfer:
             case ConnectionState.Play:
             default:
@@ -51,10 +51,6 @@ public sealed partial class Connection
                 using var handshake = Handshake.Rent();
                 handshake.DeserializePayload(ref reader);
                 State = (ConnectionState)handshake.NextState;
-
-                // Send a finish configuration packet to skip the configuration phase.
-                var finishConfiguration = new FinishConfiguration();
-                EnqueuePacket(finishConfiguration);
                 return;
             }
             case 0xFE:
@@ -122,26 +118,26 @@ public sealed partial class Connection
 
                 if (!_configurationKeepAliver.IsRunning)
                     _configurationKeepAliver.Start();
+
+                var knownCorePack = KnownPack.MinecraftCore;
+                var knownPacks = SelectKnownPacksFromServer.Rent();
+                knownPacks.Packs.Clear();
+                knownPacks.Packs.Add(knownCorePack);
+                EnqueuePacket(knownPacks);
                 return;
             }
-
             case 0x03:
             {
                 _shouldClose = true;
                 return;
             }
+            
         }
 
         throw new NotImplementedException($"Parsing packet id {packetId} for state Login is not implemented");
     }
-
-    /// <summary>
-    /// Configuration packets do not change the state of the world, so they are handled immediately.
-    /// </summary>
-    /// <param name="reader"></param>
-    /// <param name="packetId"></param>
-    /// <exception cref="NotImplementedException"></exception>
-    private void ParseConfigurationPacket(ref SequenceReader<byte> reader, int packetId)
+    
+    private AckFinishConfiguration? ParseConfigurationPacket(ref SequenceReader<byte> reader, int packetId)
     {
         switch (packetId)
         {
@@ -150,26 +146,46 @@ public sealed partial class Connection
                 using var packet = ClientInformation.Rent();
                 packet.DeserializePayload(ref reader);
                 packet.Handle(_server, this);
-                return;
+                
+                // We can now complete the configuration process.
+                _expectConfigurationAck = true;
+                var finishPacket = FinishConfiguration.Rent();
+                EnqueuePacket(finishPacket);
+                return null;
             }
             case CustomPayloadFromClient.PacketId:
             {
                 using var packet = CustomPayloadFromClient.Rent();
                 packet.DeserializePayload(ref reader);
                 packet.Handle(_server, this);
-                return;
+                return null;
             }
             case AckFinishConfiguration.PacketId:
             {
                 if (!_expectConfigurationAck)
                 {
-                    _logger.LogWarning($"Received configuration ack, but we didn't ask for it. Closing connection");
+                    _logger.LogWarning("Received configuration ack, but we didn't ask for it. Closing connection");
                     _shouldClose = true;
-                    return;
+                    return null;
                 }
-
+                _configurationKeepAliver.Stop();
                 State = ConnectionState.Play;
-                return;
+                return AckFinishConfiguration.Instance;
+            }
+            case 0x04: // Keep Alive response from the client.
+            {
+                if (reader.TryReadLong(out var timestamp) && _configurationKeepAliver.KeepAlive(timestamp)) 
+                    return null;
+                _logger.LogWarning($"Received invalid keep alive response from client. Closing connection");
+                _shouldClose = true;
+                return null;
+            }
+            case SelectKnownPacksFromClient.PacketId:
+            {
+                using var incoming = SelectKnownPacksFromClient.Rent();
+                incoming.DeserializePayload(ref reader);
+                KnownPacks.AddRange(incoming.Packs);
+                return null;
             }
         }
 
