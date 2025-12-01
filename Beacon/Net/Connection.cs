@@ -139,28 +139,39 @@ public sealed partial class Connection : IDisposable
     {
         const int twoMegabytes = 2 * 1024 * 1024;
 
-        // The prefix buffer is used to write the VarInt length of the payload. Max length is 5 bytes.
+        // Create a PipeWriter for writing packets to the client.
         var stream = Tcp.GetStream();
-        Memory<byte> prefixBuffer = new byte[5];
-        Memory<byte> buffer = new byte[twoMegabytes];
+        var writer = PipeWriter.Create(stream, new StreamPipeWriterOptions(leaveOpen: true));
+        
+        // Buffer for serializing the packet payload before copying to the PipeWriter.
+        // We need to serialize first to know the payload length for the VarInt prefix.
+        var serializationBuffer = new byte[twoMegabytes];
+
+#if DEBUG
+        // Pre-allocate debug prefix buffer outside the loop to avoid stackalloc in loop
+        var debugPrefix = new byte[5];
+#endif
 
         await foreach (IClientBoundPacket packet in _clientBoundPackets.Reader.ReadAllAsync(cancelToken))
             using (packet as IDisposable)
             {
                 if (_shouldClose || cancelToken.IsCancellationRequested)
                 {
+                    await writer.CompleteAsync();
                     return;
                 }
 
                 // The payload is all the bytes after the initial VarInt.
                 // Before writing the payload, we need to write the VarInt length of the payload.
-                if (!packet.SerializePayload(buffer.Span, out var payloadLength))
+                if (!packet.SerializePayload(serializationBuffer, out var payloadLength))
                 {
                     _logger.LogWarning("Failed to write payload of {PacketId} to buffer", packet.GetType().Name);
                     continue;
                 }
 
-                VarInt.TryWrite(prefixBuffer.Span, payloadLength, out var prefixLength);
+                // Calculate the total size needed: VarInt prefix + payload
+                var prefixLength = VarInt.GetSize(payloadLength);
+                var totalLength = prefixLength + payloadLength;
                 
 #if DEBUG
                 // Write the buffer to a file for debugging purposes.
@@ -169,12 +180,15 @@ public sealed partial class Connection : IDisposable
               
                 builder.Append(State.ToString());
                 builder.Append(" < ");
-                foreach (var b in prefixBuffer[..prefixLength].ToArray())
+                
+                // Write the prefix for debugging using pre-allocated buffer
+                VarInt.TryWrite(debugPrefix, payloadLength, out _);
+                foreach (var b in debugPrefix.AsSpan(0, prefixLength))
                 {
                     builder.Append(b);
                     builder.Append(' ');
                 }
-                foreach (var b in buffer[..payloadLength].ToArray())
+                foreach (var b in serializationBuffer.AsSpan(0, payloadLength))
                 {
                     builder.Append(b);
                     builder.Append(' ');
@@ -186,9 +200,24 @@ public sealed partial class Connection : IDisposable
                 
                 try
                 {
-                    await stream.WriteAsync(prefixBuffer[..prefixLength], CancellationToken.None);
-                    await stream.WriteAsync(buffer[..payloadLength], CancellationToken.None);
-                    await stream.FlushAsync(CancellationToken.None);
+                    // Get memory from the PipeWriter for the complete packet
+                    var memory = writer.GetMemory(totalLength);
+                    
+                    // Write the VarInt length prefix
+                    VarInt.TryWrite(memory.Span, payloadLength, out _);
+                    
+                    // Copy the payload after the prefix
+                    serializationBuffer.AsSpan(0, payloadLength).CopyTo(memory.Span[prefixLength..]);
+                    
+                    // Advance the writer and flush
+                    writer.Advance(totalLength);
+                    var flushResult = await writer.FlushAsync(CancellationToken.None);
+                    
+                    if (flushResult.IsCompleted || flushResult.IsCanceled)
+                    {
+                        _shouldClose = true;
+                        break;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -196,6 +225,8 @@ public sealed partial class Connection : IDisposable
                         packet.GetType().Name);
                 }
             }
+        
+        await writer.CompleteAsync();
     }
 
     private bool TryReadPacket(ref ReadOnlySequence<byte> buffer, out IServerBoundPacket? packet)

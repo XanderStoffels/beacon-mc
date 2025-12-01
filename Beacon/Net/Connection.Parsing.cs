@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.IO.Pipelines;
 using Beacon.Net.Packets;
 using Beacon.Net.Packets.Configuration.ClientBound;
 using Beacon.Net.Packets.Configuration.ServerBound;
@@ -59,9 +60,13 @@ public sealed partial class Connection
             }
             case 0xFE:
             {
-                // This is a legacy packet.
+                // This is a legacy packet - respond with disconnect using PipeWriter.
                 var stream = Tcp.GetStream();
-                stream.WriteByte(0xFF);
+                var writer = PipeWriter.Create(stream, new StreamPipeWriterOptions(leaveOpen: true));
+                var span = writer.GetSpan(1);
+                span[0] = 0xFF;
+                writer.Advance(1);
+                writer.Complete();
                 _shouldClose = true;
                 return;
             }
@@ -87,10 +92,17 @@ public sealed partial class Connection
                 return;
 
             case PingRequest.PacketId:
+            {
                 // Instead of creating a new packet here, we can just inline the logic because it's so simple.
                 if (reader.TryReadLong(out var timestamp))
-                    PingRequest.WritePong(Tcp.GetStream(), timestamp);
+                {
+                    var stream = Tcp.GetStream();
+                    var writer = PipeWriter.Create(stream, new StreamPipeWriterOptions(leaveOpen: true));
+                    PingRequest.WritePong(writer, timestamp);
+                    writer.Complete();
+                }
                 return;
+            }
         }
 
         throw new NotImplementedException($"Parsing packet id {packetId} for state Status is not implemented");
