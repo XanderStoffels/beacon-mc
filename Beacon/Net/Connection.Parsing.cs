@@ -1,5 +1,4 @@
 using System.Buffers;
-using System.IO.Pipelines;
 using Beacon.Net.Packets;
 using Beacon.Net.Packets.Configuration.ClientBound;
 using Beacon.Net.Packets.Configuration.ServerBound;
@@ -60,15 +59,9 @@ public sealed partial class Connection
             }
             case 0xFE:
             {
-                // This is a legacy packet - respond with disconnect using PipeWriter.
+                // This is a legacy packet.
                 var stream = Tcp.GetStream();
-                var writer = PipeWriter.Create(stream, new StreamPipeWriterOptions(leaveOpen: true));
-                var span = writer.GetSpan(1);
-                span[0] = 0xFF;
-                writer.Advance(1);
-                // Flush synchronously since we're in a synchronous context and need immediate delivery
-                writer.FlushAsync().GetAwaiter().GetResult();
-                writer.Complete();
+                stream.WriteByte(0xFF);
                 _shouldClose = true;
                 return;
             }
@@ -94,19 +87,10 @@ public sealed partial class Connection
                 return;
 
             case PingRequest.PacketId:
-            {
                 // Instead of creating a new packet here, we can just inline the logic because it's so simple.
                 if (reader.TryReadLong(out var timestamp))
-                {
-                    var stream = Tcp.GetStream();
-                    var writer = PipeWriter.Create(stream, new StreamPipeWriterOptions(leaveOpen: true));
-                    PingRequest.WritePong(writer, timestamp);
-                    // Flush synchronously since we're in a synchronous context and need immediate delivery
-                    writer.FlushAsync().GetAwaiter().GetResult();
-                    writer.Complete();
-                }
+                    PingRequest.WritePong(Tcp.GetStream(), timestamp);
                 return;
-            }
         }
 
         throw new NotImplementedException($"Parsing packet id {packetId} for state Status is not implemented");

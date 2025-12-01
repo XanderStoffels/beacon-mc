@@ -1,6 +1,5 @@
 using System.Buffers;
 using System.Buffers.Binary;
-using System.IO.Pipelines;
 using Beacon.Util;
 
 namespace Beacon.Net.Packets.Status.ServerBound;
@@ -34,26 +33,25 @@ public class PingRequest : Rentable<PingRequest>, IServerBoundPacket
         return true;
     }
 
-    public static void WritePong(PipeWriter writer, long timeStamp)
+    public static void WritePong(Stream stream, long timeStamp)
     {
         // This packet has a fixed length of 10 bytes.
         const int packetLength = 10;
         const int payloadLength = 9;
+        Span<byte> buffer = stackalloc byte[packetLength];
         
-        // Get memory from the PipeWriter
-        var memory = writer.GetSpan(packetLength);
+        var span = buffer;
+        VarInt.TryWrite(span, payloadLength, out _);
+        span = span[1..]; // VarInt with value 9 is 1 byte long.
         
-        VarInt.TryWrite(memory, payloadLength, out _);
-        memory = memory[1..]; // VarInt with value 9 is 1 byte long.
-        
-        VarInt.TryWrite(memory, PacketId, out _);
-        memory = memory[1..]; // PacketId is 1, which is always 1 byte long.
+        VarInt.TryWrite(span, PacketId, out _);
+        span = span[1..]; // PacketId is 1, which is always 1 byte long.
         
         // Write the timestamp which is always 8 bytes.
-        BinaryPrimitives.WriteInt64BigEndian(memory, timeStamp);
+        BinaryPrimitives.WriteInt64BigEndian(span, timeStamp);
         
-        // Advance the writer by the total packet length
-        writer.Advance(packetLength);
+        // Write to the stream.
+        stream.Write(buffer);
     }
     
 }
