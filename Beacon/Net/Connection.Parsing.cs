@@ -66,6 +66,8 @@ public sealed partial class Connection
                 var span = writer.GetSpan(1);
                 span[0] = 0xFF;
                 writer.Advance(1);
+                // Flush synchronously since we're in a synchronous context and need immediate delivery
+                writer.FlushAsync().GetAwaiter().GetResult();
                 writer.Complete();
                 _shouldClose = true;
                 return;
@@ -99,6 +101,8 @@ public sealed partial class Connection
                     var stream = Tcp.GetStream();
                     var writer = PipeWriter.Create(stream, new StreamPipeWriterOptions(leaveOpen: true));
                     PingRequest.WritePong(writer, timestamp);
+                    // Flush synchronously since we're in a synchronous context and need immediate delivery
+                    writer.FlushAsync().GetAwaiter().GetResult();
                     writer.Complete();
                 }
                 return;
