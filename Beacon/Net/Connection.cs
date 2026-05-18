@@ -288,7 +288,7 @@ public sealed partial class Connection : IDisposable
 
     #region Events
 
-    private void OnConfigurationKeepAliveIntervalStarted(object? sender, EventArgs e)
+    private void OnConfigurationKeepAliveIntervalStarted(object? sender, long e)
     {
         if (State != ConnectionState.Configuration)
         {
